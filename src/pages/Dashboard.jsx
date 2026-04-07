@@ -5,9 +5,10 @@ import MealSheet from '../components/MealSheet';
 import FinanceSummary from '../components/FinanceSummary';
 import ManagerSettings from '../components/ManagerSettings';
 import GroupSettings from '../components/GroupSettings';
+import BazarSchedule from '../components/BazarSchedule';
 import burgerToast from '../components/BurgerToast';
 import LottieLoader from '../components/LottieLoader';
-import { FaUtensils, FaChartLine, FaCog, FaUsers, FaCrown, FaUserCog, FaCopy } from 'react-icons/fa';
+import { FaUtensils, FaChartLine, FaCog, FaUsers, FaCrown, FaUserCog, FaCopy, FaCalendarCheck } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { userData, getAuthHeaders } = useAuth();
@@ -82,51 +83,62 @@ const Dashboard = () => {
 
         {/* Premium Tabs */}
         <div className="bg-base-100 rounded-2xl shadow-xl p-2 mb-6">
-          <div className="tabs tabs-boxed bg-transparent gap-1 sm:gap-2">
+          <div className="tabs tabs-boxed bg-base-200/50 gap-1">
             <a
-              className={`tab flex-1 gap-1 sm:gap-2 font-semibold transition-all duration-300 text-xs sm:text-sm ${
-                activeTab === 'meals' 
-                  ? 'bg-primary text-white shadow-lg' 
-                  : 'hover:bg-primary/10 hover:text-primary'
+              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+                activeTab === 'meals'
+                  ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
+                  : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
               }`}
               onClick={() => setActiveTab('meals')}
             >
-              <FaUtensils className="text-base sm:text-lg flex-shrink-0" />
-              <span className="truncate">Meals</span>
+              <FaUtensils className="text-base flex-shrink-0" />
+              <span>Meals</span>
             </a>
             <a
-              className={`tab flex-1 gap-1 sm:gap-2 font-semibold transition-all duration-300 text-xs sm:text-sm ${
-                activeTab === 'finance' 
-                  ? 'bg-primary text-white shadow-lg' 
-                  : 'hover:bg-primary/10 hover:text-primary'
+              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+                activeTab === 'finance'
+                  ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
+                  : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
               }`}
               onClick={() => setActiveTab('finance')}
             >
-              <FaChartLine className="text-base sm:text-lg flex-shrink-0" />
-              <span className="truncate">Finance</span>
+              <FaChartLine className="text-base flex-shrink-0" />
+              <span>Finance</span>
             </a>
             <a
-              className={`tab flex-1 gap-1 sm:gap-2 font-semibold transition-all duration-300 text-xs sm:text-sm ${
-                activeTab === 'account' 
-                  ? 'bg-primary text-white shadow-lg' 
-                  : 'hover:bg-primary/10 hover:text-primary'
+              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+                activeTab === 'bazar'
+                  ? 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-lg shadow-teal-500/30 scale-[1.03]'
+                  : 'text-base-content/50 hover:text-teal-500 hover:bg-teal-500/10'
+              }`}
+              onClick={() => setActiveTab('bazar')}
+            >
+              <FaCalendarCheck className="text-base flex-shrink-0" />
+              <span>Bazar</span>
+            </a>
+            <a
+              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+                activeTab === 'account'
+                  ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
+                  : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
               }`}
               onClick={() => setActiveTab('account')}
             >
-              <FaUserCog className="text-base sm:text-lg flex-shrink-0" />
-              <span className="truncate">Account</span>
+              <FaUserCog className="text-base flex-shrink-0" />
+              <span>Account</span>
             </a>
             {isManager && (
               <a
-                className={`tab flex-1 gap-1 sm:gap-2 font-semibold transition-all duration-300 text-xs sm:text-sm ${
-                  activeTab === 'settings' 
-                    ? 'bg-primary text-white shadow-lg' 
-                    : 'hover:bg-primary/10 hover:text-primary'
+                className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+                  activeTab === 'settings'
+                    ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
+                    : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
                 }`}
                 onClick={() => setActiveTab('settings')}
               >
-                <FaCog className="text-base sm:text-lg flex-shrink-0" />
-                <span className="truncate">Manager</span>
+                <FaCog className="text-base flex-shrink-0" />
+                <span>Manager</span>
               </a>
             )}
           </div>
@@ -136,6 +148,7 @@ const Dashboard = () => {
         <div className="animate-fadeIn">
           {activeTab === 'meals' && <MealSheet group={group} isManager={isManager} onUpdate={fetchGroup} />}
           {activeTab === 'finance' && <FinanceSummary group={group} isManager={isManager} onUpdate={fetchGroup} />}
+          {activeTab === 'bazar' && <BazarSchedule group={group} isManager={isManager} />}
           {activeTab === 'account' && <GroupSettings group={group} isManager={isManager} onUpdate={fetchGroup} />}
           {activeTab === 'settings' && isManager && <ManagerSettings group={group} onUpdate={fetchGroup} />}
         </div>

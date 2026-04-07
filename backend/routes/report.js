@@ -116,6 +116,14 @@ router.get('/download/:month', verifyToken, async (req, res) => {
     // Helper to format currency (using BDT instead of symbol)
     const formatCurrency = (amount) => `BDT ${amount.toFixed(2)}`;
 
+    // Helper to format date consistently regardless of server locale
+    const formatDate = (d) => {
+      const date = new Date(d);
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${day} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+    };
+
     // Header with background
     doc.rect(0, 0, 595, 100).fill('#3b82f6');
     doc.fillColor('#ffffff')
@@ -146,7 +154,7 @@ router.get('/download/:month', verifyToken, async (req, res) => {
     doc.font('Helvetica').text(month, 150, infoY + 30);
     
     doc.font('Helvetica-Bold').text('Generated:', 350, infoY + 30);
-    doc.font('Helvetica').text(new Date().toLocaleDateString(), 430, infoY + 30);
+    doc.font('Helvetica').text(formatDate(new Date()), 430, infoY + 30);
 
     doc.moveDown(3);
 
@@ -307,8 +315,8 @@ router.get('/download/:month', verifyToken, async (req, res) => {
       doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
       
       doc.text('Date', 55, currentY + 8, { width: 100 });
-      doc.text('Amount', 155, currentY + 8, { width: 100, align: 'right' });
-      doc.text('Description', 255, currentY + 8, { width: 280 });
+      doc.text('Amount', 155, currentY + 8, { width: 120, align: 'right' });
+      doc.text('Description', 295, currentY + 8, { width: 240 });
 
       currentY += 25;
       doc.fillColor('#000000');
@@ -326,9 +334,9 @@ router.get('/download/:month', verifyToken, async (req, res) => {
         }
 
         doc.fillColor('#000000');
-        doc.text(new Date(bazar.date).toLocaleDateString(), 55, currentY + 5, { width: 100 });
-        doc.text(formatCurrency(bazar.amount), 155, currentY + 5, { width: 100, align: 'right' });
-        doc.text(bazar.description || '-', 255, currentY + 5, { width: 280 });
+        doc.text(formatDate(new Date(bazar.date)), 55, currentY + 5, { width: 100 });
+        doc.text(formatCurrency(bazar.amount), 155, currentY + 5, { width: 120, align: 'right' });
+        doc.text(bazar.description || '-', 295, currentY + 5, { width: 240 });
 
         currentY += 20;
       });
@@ -350,7 +358,7 @@ router.get('/download/:month', verifyToken, async (req, res) => {
       doc.fontSize(8).font('Helvetica')
          .fillColor('#6b7280')
          .text(
-           `Page ${i + 1} of ${pageCount} | Generated on ${new Date().toLocaleString()} | This is a computer-generated report`,
+           `Page ${i + 1} of ${pageCount} | Generated on ${formatDate(new Date())} | This is a computer-generated report`,
            50,
            770,
            { align: 'center', width: 495 }

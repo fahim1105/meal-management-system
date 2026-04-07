@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
+import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import { FaShoppingCart, FaUtensils, FaChartLine, FaMoneyBillWave, FaUsers, FaClipboardList, FaCalendarAlt, FaTrash, FaChevronLeft, FaChevronRight, FaHistory } from 'react-icons/fa';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -11,16 +12,26 @@ const FinanceSummary = ({ group, isManager }) => {
   const [summary, setSummary] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const { getAuthHeaders, userData } = useAuth();
 
   const [depositUserId, setDepositUserId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [bazarAmount, setBazarAmount] = useState('');
   const [bazarDescription, setBazarDescription] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [bazarLoading, setBazarLoading] = useState(false);
+  const [deletingDepositId, setDeletingDepositId] = useState(null);
+  const [deletingBazarId, setDeletingBazarId] = useState(null);
+  const [historyTab, setHistoryTab] = useState('deposit');
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  // Bazar schedule state
+  const [schedule, setSchedule] = useState(null);
+  const [selectedDates, setSelectedDates] = useState([]);
+  const [newDate, setNewDate] = useState('');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const API_URL = import.meta.env.VITE_API_URL;  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const chartAxisColor = isDark ? '#9ca3af' : '#6b7280';
   const chartGridColor = isDark ? '#374151' : '#e5e7eb';
 
@@ -42,17 +53,21 @@ const FinanceSummary = ({ group, isManager }) => {
   };
 
   const fetchSummary = async () => {
+    setSummaryLoading(true);
     try {
       const headers = await getAuthHeaders();
       const response = await axios.get(`${API_URL}/finance/summary/${currentMonth}`, { headers });
       setSummary(response.data);
     } catch (error) {
       console.error('Failed to fetch summary');
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
   const handleAddDeposit = async (e) => {
     e.preventDefault();
+    setDepositLoading(true);
     try {
       const headers = await getAuthHeaders();
       await axios.post(`${API_URL}/finance/deposit`, { month: currentMonth, userId: depositUserId, amount: parseFloat(depositAmount) }, { headers });
@@ -63,11 +78,14 @@ const FinanceSummary = ({ group, isManager }) => {
       fetchSummary();
     } catch (error) {
       burgerToast.error('Failed to add deposit');
+    } finally {
+      setDepositLoading(false);
     }
   };
 
   const handleAddBazar = async (e) => {
     e.preventDefault();
+    setBazarLoading(true);
     try {
       const headers = await getAuthHeaders();
       await axios.post(`${API_URL}/finance/bazar`, { month: currentMonth, amount: parseFloat(bazarAmount), description: bazarDescription }, { headers });
@@ -78,10 +96,26 @@ const FinanceSummary = ({ group, isManager }) => {
       fetchSummary();
     } catch (error) {
       burgerToast.error('Failed to add bazar cost');
+    } finally {
+      setBazarLoading(false);
     }
   };
 
   const handleDeleteBazar = async (bazarId) => {
+    const result = await Swal.fire({
+      title: 'Delete Bazar Entry?',
+      text: 'Are you sure you want to delete this bazar entry?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: { popup: 'rounded-2xl', confirmButton: 'btn btn-error', cancelButton: 'btn btn-ghost' }
+    });
+    if (!result.isConfirmed) return;
+    setDeletingBazarId(bazarId);
     try {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/finance/bazar/${currentMonth}/${bazarId}`, { headers });
@@ -90,10 +124,26 @@ const FinanceSummary = ({ group, isManager }) => {
       fetchSummary();
     } catch (error) {
       burgerToast.error('Failed to delete bazar entry');
+    } finally {
+      setDeletingBazarId(null);
     }
   };
 
   const handleDeleteDeposit = async (depositId) => {
+    const result = await Swal.fire({
+      title: 'Delete Deposit?',
+      text: 'Are you sure you want to delete this deposit entry?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: { popup: 'rounded-2xl', confirmButton: 'btn btn-error', cancelButton: 'btn btn-ghost' }
+    });
+    if (!result.isConfirmed) return;
+    setDeletingDepositId(depositId);
     try {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/finance/deposit/${currentMonth}/${depositId}`, { headers });
@@ -102,6 +152,8 @@ const FinanceSummary = ({ group, isManager }) => {
       fetchSummary();
     } catch (error) {
       burgerToast.error('Failed to delete deposit');
+    } finally {
+      setDeletingDepositId(null);
     }
   };
 
@@ -142,6 +194,8 @@ const FinanceSummary = ({ group, isManager }) => {
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#6366f1'];
 
+  const currencyFields = ['deposit', 'cost', 'balance', 'Deposit', 'Cost', 'Balance'];
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -149,7 +203,9 @@ const FinanceSummary = ({ group, isManager }) => {
           <p className="font-bold text-primary">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }}>
-              {entry.name}: ৳{entry.value?.toFixed(2) || entry.value}
+              {currencyFields.includes(entry.name)
+                ? `${entry.name}: ৳${entry.value?.toFixed(2)}`
+                : `${entry.name}: ${entry.value}`}
             </p>
           ))}
         </div>
@@ -163,36 +219,35 @@ const FinanceSummary = ({ group, isManager }) => {
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
-        <div>
-          <h2 className="text-3xl font-bold text-white mb-1">Finance Summary</h2>
-          <p className="text-white/80 text-sm">Track your group's financial status</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-white text-sm font-medium flex items-center gap-2">
-            <FaCalendarAlt className="text-lg" />Month:
-          </label>
-          <button type="button" onClick={() => navigateMonth(-1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20">
-            <FaChevronLeft />
-          </button>
-          <div className="relative">
-            <input
-              type="month"
-              id="monthPicker"
-              className="input input-bordered bg-white text-gray-800 font-medium shadow-md pr-12"
-              value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
-            />
-            <button type="button" onClick={() => document.getElementById('monthPicker').showPicker()} className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-circle text-primary hover:bg-primary/10">
-              <FaCalendarAlt className="text-lg" />
+      <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
+        <div className="flex flex-col gap-4">
+          <div>
+            <h2 className="text-3xl font-bold text-white mb-1">Finance Summary</h2>
+            <p className="text-white/80 text-sm">Track your group's financial status</p>
+          </div>
+          <div className="flex items-center gap-2 w-full">
+            <label className="text-white text-sm font-medium flex items-center gap-2 shrink-0">
+              <FaCalendarAlt className="text-lg" />Month:
+            </label>
+            <button type="button" onClick={() => navigateMonth(-1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
+              <FaChevronLeft />
+            </button>
+            <div className="relative flex-1 min-w-0">
+              <input
+                type="month"
+                id="monthPicker"
+                className="input input-bordered bg-white text-gray-800 font-medium shadow-md w-full cursor-pointer"
+                value={currentMonth}
+                onChange={(e) => setCurrentMonth(e.target.value)}
+              />
+            </div>
+            <button type="button" onClick={() => navigateMonth(1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
+              <FaChevronRight />
             </button>
           </div>
-          <button type="button" onClick={() => navigateMonth(1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20">
-            <FaChevronRight />
-          </button>
         </div>
       </div>
 
@@ -203,7 +258,11 @@ const FinanceSummary = ({ group, isManager }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Total Bazar</p>
-                <p className="text-4xl font-bold">৳{summary?.totalBazar?.toFixed(2) || 0}</p>
+                {summaryLoading ? (
+                  <div className="h-10 w-28 bg-white/30 rounded-lg animate-pulse" />
+                ) : (
+                  <p className="text-4xl font-bold">৳{summary?.totalBazar?.toFixed(2) || '0.00'}</p>
+                )}
               </div>
               <div className="text-5xl opacity-20"><FaShoppingCart /></div>
             </div>
@@ -214,7 +273,11 @@ const FinanceSummary = ({ group, isManager }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Total Meals</p>
-                <p className="text-4xl font-bold">{summary?.totalMeals || 0}</p>
+                {summaryLoading ? (
+                  <div className="h-10 w-20 bg-white/30 rounded-lg animate-pulse" />
+                ) : (
+                  <p className="text-4xl font-bold">{summary?.totalMeals || 0}</p>
+                )}
               </div>
               <div className="text-5xl opacity-20"><FaUtensils /></div>
             </div>
@@ -225,7 +288,11 @@ const FinanceSummary = ({ group, isManager }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Meal Rate</p>
-                <p className="text-4xl font-bold">৳{summary?.mealRate?.toFixed(2) || 0}</p>
+                {summaryLoading ? (
+                  <div className="h-10 w-28 bg-white/30 rounded-lg animate-pulse" />
+                ) : (
+                  <p className="text-4xl font-bold">৳{summary?.mealRate?.toFixed(2) || '0.00'}</p>
+                )}
               </div>
               <div className="text-5xl opacity-20"><FaChartLine /></div>
             </div>
@@ -261,7 +328,9 @@ const FinanceSummary = ({ group, isManager }) => {
                   <label className="label"><span className="label-text font-semibold">Amount (৳)</span></label>
                   <input type="number" placeholder="Enter amount..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required />
                 </div>
-                <button type="submit" className="btn btn-primary w-full shadow-md">Add Deposit</button>
+                <button type="submit" className={`btn btn-primary w-full shadow-md ${depositLoading ? 'loading' : ''}`} disabled={depositLoading}>
+                  {!depositLoading && 'Add Deposit'}
+                </button>
               </form>
             </div>
           </div>
@@ -286,7 +355,9 @@ const FinanceSummary = ({ group, isManager }) => {
                   <label className="label"><span className="label-text font-semibold">Description</span></label>
                   <input type="text" placeholder="e.g., Rice, vegetables, fish..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={bazarDescription} onChange={(e) => setBazarDescription(e.target.value)} />
                 </div>
-                <button type="submit" className="btn btn-primary w-full shadow-md">Add Bazar Cost</button>
+                <button type="submit" className={`btn btn-primary w-full shadow-md ${bazarLoading ? 'loading' : ''}`} disabled={bazarLoading}>
+                  {!bazarLoading && 'Add Bazar Cost'}
+                </button>
               </form>
             </div>
           </div>
@@ -350,211 +421,248 @@ const FinanceSummary = ({ group, isManager }) => {
         </div>
       </div>
 
-      {/* 2. Deposit History */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-green-500">
+      {/* 2 & 3. History Tabs */}
+      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
         <div className="card-body">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-green-500/10 p-3 rounded-full">
-              <FaHistory className="text-2xl text-green-600" />
-            </div>
-            <div>
-              <h2 className="card-title text-green-600">Deposit History</h2>
-              <p className="text-sm text-base-content/60">All deposit entries this month</p>
-            </div>
+          {/* Tab Header */}
+          <div className="flex gap-2 mb-5 bg-base-200 p-1.5 rounded-xl">
+            <button
+              onClick={() => setHistoryTab('deposit')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                historyTab === 'deposit'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
+                  : 'text-base-content/60 hover:text-green-600 hover:bg-green-500/10'
+              }`}
+            >
+              <FaHistory className="text-base" />
+              Deposit
+              {finance?.deposits?.length > 0 && (
+                <span className={`badge badge-xs ${historyTab === 'deposit' ? 'bg-white/30 text-white border-none' : 'badge-success'}`}>
+                  {finance.deposits.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setHistoryTab('bazar')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                historyTab === 'bazar'
+                  ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-md'
+                  : 'text-base-content/60 hover:text-primary hover:bg-primary/10'
+              }`}
+            >
+              <FaClipboardList className="text-base" />
+              Bazar
+              {finance?.bazarCosts?.length > 0 && (
+                <span className={`badge badge-xs ${historyTab === 'bazar' ? 'bg-white/30 text-white border-none' : 'badge-primary'}`}>
+                  {finance.bazarCosts.length}
+                </span>
+              )}
+            </button>
           </div>
 
-          {!finance?.deposits?.length ? (
-            <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
-              <FaHistory className="text-5xl mb-3" />
-              <p className="text-lg font-semibold">No deposits yet</p>
-              <p className="text-sm">Deposits added this month will appear here.</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="table table-zebra">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                      <th className="font-bold">Date</th>
-                      <th className="font-bold">Member</th>
-                      <th className="font-bold text-right">Amount</th>
-                      {isManager && <th className="font-bold text-center">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getDepositHistory().map((deposit) => (
-                      <tr key={deposit._id} className="hover:bg-green-500/5 transition-colors">
-                        <td>
-                          <span className="badge badge-success text-white">
-                            {format(new Date(deposit.date), 'dd MMM yyyy')}
-                          </span>
-                        </td>
-                        <td className="font-medium">
-                          {deposit.memberName}
-                          {deposit.userId === userData?.uid && (
-                            <span className="badge badge-sm badge-primary ml-2">You</span>
-                          )}
-                        </td>
-                        <td className="text-right font-bold text-green-600">৳{deposit.amount.toFixed(2)}</td>
-                        {isManager && (
-                          <td className="text-center">
-                            <button className="btn btn-xs btn-error btn-outline" onClick={() => handleDeleteDeposit(deposit._id)}>
-                              <FaTrash />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold">
-                      <td colSpan={2}>Total Deposits</td>
-                      <td className="text-right text-lg">৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</td>
-                      {isManager && <td></td>}
-                    </tr>
-                  </tfoot>
-                </table>
+          {/* Deposit Tab Content */}
+          {historyTab === 'deposit' && (
+            !finance?.deposits?.length ? (
+              <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
+                <FaHistory className="text-5xl mb-3" />
+                <p className="text-lg font-semibold">No deposits yet</p>
+                <p className="text-sm">Deposits added this month will appear here.</p>
               </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden space-y-3">
-                {getDepositHistory().map((deposit) => (
-                  <div key={deposit._id} className="card bg-base-200 shadow-md">
-                    <div className="card-body p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-base-content">
-                            {deposit.memberName}
-                            {deposit.userId === userData?.uid && (
-                              <span className="badge badge-sm badge-primary ml-2">You</span>
+            ) : (
+              <>
+                <div className="hidden md:block rounded-lg overflow-hidden">
+                  <table className="table table-zebra w-full table-fixed">
+                    <colgroup>
+                      <col className="w-1/3" />
+                      <col className="w-1/3" />
+                      <col className="w-1/3" />
+                      {isManager && <col className="w-20" />}
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+                        <th className="font-bold">Date</th>
+                        <th className="font-bold text-left">Member</th>
+                        <th className="font-bold text-right">Amount</th>
+                        {isManager && <th className="font-bold text-center">Action</th>}
+                      </tr>
+                    </thead>
+                  </table>
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="table table-zebra w-full table-fixed">
+                      <colgroup>
+                        <col className="w-1/3" />
+                        <col className="w-1/3" />
+                        <col className="w-1/3" />
+                        {isManager && <col className="w-20" />}
+                      </colgroup>
+                      <tbody>
+                        {getDepositHistory().map((deposit) => (
+                          <tr key={deposit._id} className="hover:bg-green-500/5 transition-colors">
+                            <td><span className="badge badge-success text-white">{format(new Date(deposit.date), 'dd MMM yyyy')}</span></td>
+                            <td className="font-medium text-left">{deposit.memberName}{deposit.userId === userData?.uid && <span className="badge badge-sm badge-primary ml-2">You</span>}</td>
+                            <td className="text-right font-bold text-green-600">৳{deposit.amount.toFixed(2)}</td>
+                            {isManager && (
+                              <td className="text-center">
+                                <button className={`btn btn-xs btn-error btn-outline ${deletingDepositId === deposit._id ? 'loading' : ''}`} onClick={() => handleDeleteDeposit(deposit._id)} disabled={deletingDepositId === deposit._id}>
+                                  {deletingDepositId !== deposit._id && <FaTrash />}
+                                </button>
+                              </td>
                             )}
-                          </p>
-                          <span className="badge badge-sm badge-success text-white mt-1">
-                            {format(new Date(deposit.date), 'dd MMM yyyy')}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl font-bold text-green-600">৳{deposit.amount.toFixed(2)}</span>
-                          {isManager && (
-                            <button className="btn btn-xs btn-error btn-outline" onClick={() => handleDeleteDeposit(deposit._id)}>
-                              <FaTrash />
-                            </button>
-                          )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <table className="table w-full table-fixed">
+                    <colgroup>
+                      <col className="w-1/3" />
+                      <col className="w-1/3" />
+                      <col className="w-1/3" />
+                      {isManager && <col className="w-20" />}
+                    </colgroup>
+                    <tfoot>
+                      <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold">
+                        <td colSpan={2}>Total Deposits</td>
+                        <td className="text-right text-lg">৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</td>
+                        {isManager && <td></td>}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div className="md:hidden space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {getDepositHistory().map((deposit) => (
+                    <div key={deposit._id} className="card bg-base-200 shadow-md">
+                      <div className="card-body p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-base-content">{deposit.memberName}{deposit.userId === userData?.uid && <span className="badge badge-sm badge-primary ml-2">You</span>}</p>
+                            <span className="badge badge-sm badge-success text-white mt-1">{format(new Date(deposit.date), 'dd MMM yyyy')}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-green-600">৳{deposit.amount.toFixed(2)}</span>
+                            {isManager && (
+                              <button className={`btn btn-xs btn-error btn-outline ${deletingDepositId === deposit._id ? 'loading' : ''}`} onClick={() => handleDeleteDeposit(deposit._id)} disabled={deletingDepositId === deposit._id}>
+                                {deletingDepositId !== deposit._id && <FaTrash />}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                <div className="card bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg">
+                  ))}
+                </div>
+                <div className="md:hidden card bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg mt-2">
                   <div className="card-body p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-bold">Total Deposits</span>
-                      <span className="text-2xl font-bold">৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</span>
+                      <span className="text-2xl font-bold">{'৳'}{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            </>
+              </>
+            )
           )}
-        </div>
-      </div>
 
-      {/* 3. Bazar History */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
-        <div className="card-body">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <FaClipboardList className="text-2xl text-primary" />
-            </div>
-            <div>
-              <h2 className="card-title text-primary">Bazar History</h2>
-              <p className="text-sm text-base-content/60">All shopping expenses this month</p>
-            </div>
-          </div>
-
-          {!finance?.bazarCosts?.length ? (
-            <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
-              <FaClipboardList className="text-5xl mb-3" />
-              <p className="text-lg font-semibold">No bazar entries yet</p>
-              <p className="text-sm">Bazar costs added this month will appear here.</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="table table-zebra">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
-                      <th className="font-bold">Date</th>
-                      <th className="font-bold text-right">Amount</th>
-                      <th className="font-bold">Description</th>
-                      {isManager && <th className="font-bold text-center">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {finance.bazarCosts.map((bazar, index) => (
-                      <tr key={index} className="hover:bg-primary/5 transition-colors">
-                        <td>
-                          <span className="badge badge-primary badge-outline">
-                            {format(new Date(bazar.date), 'dd MMM yyyy')}
-                          </span>
-                        </td>
-                        <td className="text-right font-bold text-primary">৳{bazar.amount.toFixed(2)}</td>
-                        <td className="text-base-content/70">{bazar.description || '-'}</td>
-                        {isManager && (
-                          <td className="text-center">
-                            <button className="btn btn-xs btn-error btn-outline" onClick={() => handleDeleteBazar(bazar._id)} title="Delete">
-                              <FaTrash />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-gradient-to-r from-primary to-blue-600 text-white font-bold">
-                      <td>Total</td>
-                      <td className="text-right text-lg">৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</td>
-                      <td></td>
-                      {isManager && <td></td>}
-                    </tr>
-                  </tfoot>
-                </table>
+          {/* Bazar Tab Content */}
+          {historyTab === 'bazar' && (
+            !finance?.bazarCosts?.length ? (
+              <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
+                <FaClipboardList className="text-5xl mb-3" />
+                <p className="text-lg font-semibold">No bazar entries yet</p>
+                <p className="text-sm">Bazar costs added this month will appear here.</p>
               </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden space-y-3">
-                {finance.bazarCosts.map((bazar, index) => (
-                  <div key={index} className="card bg-base-200 shadow-md">
-                    <div className="card-body p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="badge badge-primary">
-                          {format(new Date(bazar.date), 'dd MMM yyyy')}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl font-bold text-primary">৳{bazar.amount.toFixed(2)}</span>
-                          {isManager && (
-                            <button className="btn btn-xs btn-error btn-outline" onClick={() => handleDeleteBazar(bazar._id)}>
-                              <FaTrash />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-base-content/70">{bazar.description || 'No description'}</p>
-                    </div>
+            ) : (
+              <>
+                <div className="hidden md:block rounded-lg overflow-hidden">
+                  <table className="table table-zebra w-full table-fixed">
+                    <colgroup>
+                      <col className="w-36" />
+                      <col className="w-40" />
+                      <col />
+                      {isManager && <col className="w-20" />}
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
+                        <th className="font-bold">Date</th>
+                        <th className="font-bold text-right pr-8">Amount</th>
+                        <th className="font-bold">Description</th>
+                        {isManager && <th className="font-bold text-center">Action</th>}
+                      </tr>
+                    </thead>
+                  </table>
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="table table-zebra w-full table-fixed">
+                      <colgroup>
+                        <col className="w-36" />
+                        <col className="w-40" />
+                        <col />
+                        {isManager && <col className="w-20" />}
+                      </colgroup>
+                      <tbody>
+                        {[...finance.bazarCosts].sort((a, b) => new Date(b.date) - new Date(a.date)).map((bazar, index) => (
+                          <tr key={index} className="hover:bg-primary/5 transition-colors">
+                            <td><span className="badge badge-primary badge-outline">{format(new Date(bazar.date), 'dd MMM yyyy')}</span></td>
+                            <td className="text-right font-bold text-primary pr-8">৳{bazar.amount.toFixed(2)}</td>
+                            <td className="text-base-content/70 truncate">{bazar.description || '-'}</td>
+                            {isManager && (
+                              <td className="text-center">
+                                <button className={`btn btn-xs btn-error btn-outline ${deletingBazarId === bazar._id ? 'loading' : ''}`} onClick={() => handleDeleteBazar(bazar._id)} disabled={deletingBazarId === bazar._id} title="Delete">
+                                  {deletingBazarId !== bazar._id && <FaTrash />}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-                <div className="card bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg">
+                  <table className="table w-full table-fixed">
+                    <colgroup>
+                      <col className="w-36" />
+                      <col className="w-40" />
+                      <col />
+                      {isManager && <col className="w-20" />}
+                    </colgroup>
+                    <tfoot>
+                      <tr className="bg-gradient-to-r from-primary to-blue-600 text-white font-bold">
+                        <td>Total</td>
+                        <td className="text-right text-lg pr-8">৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</td>
+                        <td></td>
+                        {isManager && <td></td>}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div className="md:hidden space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {[...finance.bazarCosts].sort((a, b) => new Date(b.date) - new Date(a.date)).map((bazar, index) => (
+                    <div key={index} className="card bg-base-200 shadow-md">
+                      <div className="card-body p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="badge badge-primary">{format(new Date(bazar.date), 'dd MMM yyyy')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-primary">৳{bazar.amount.toFixed(2)}</span>
+                            {isManager && (
+                              <button className={`btn btn-xs btn-error btn-outline ${deletingBazarId === bazar._id ? 'loading' : ''}`} onClick={() => handleDeleteBazar(bazar._id)} disabled={deletingBazarId === bazar._id}>
+                                {deletingBazarId !== bazar._id && <FaTrash />}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-base-content/70">{bazar.description || 'No description'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="md:hidden card bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg mt-2">
                   <div className="card-body p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-bold">Total Bazar</span>
-                      <span className="text-2xl font-bold">৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</span>
+                      <span className="text-2xl font-bold">{'৳'}{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            </>
+              </>
+            )
           )}
         </div>
       </div>

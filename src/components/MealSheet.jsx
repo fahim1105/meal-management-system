@@ -303,10 +303,10 @@ const MealSheet = ({ group, isManager }) => {
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6">
       {/* Premium Header */}
       <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-3 rounded-full">
               <FaUtensils className="text-3xl text-white" />
@@ -316,38 +316,31 @@ const MealSheet = ({ group, isManager }) => {
               <p className="text-white/80 text-sm">Track daily meals for all members</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-white text-sm font-medium flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full">
+            <label className="text-white text-sm font-medium flex items-center gap-2 shrink-0">
               <FaCalendarAlt className="text-lg" />
               Month:
             </label>
             <button
               type="button"
               onClick={() => navigateMonth(-1)}
-              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20"
+              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0"
             >
               <FaChevronLeft />
             </button>
-            <div className="relative">
+            <div className="relative flex-1 min-w-0">
               <input
                 type="month"
                 id="mealMonthPicker"
-                className="input input-bordered bg-white text-gray-800 font-medium shadow-md pr-12"
+                className="input input-bordered bg-white text-gray-800 font-medium shadow-md w-full cursor-pointer"
                 value={currentMonth}
                 onChange={(e) => setCurrentMonth(e.target.value)}
               />
-              <button
-                type="button"
-                onClick={() => document.getElementById('mealMonthPicker').showPicker()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-circle text-primary hover:bg-primary/10"
-              >
-                <FaCalendarAlt className="text-lg" />
-              </button>
             </div>
             <button
               type="button"
               onClick={() => navigateMonth(1)}
-              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20"
+              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0"
             >
               <FaChevronRight />
             </button>

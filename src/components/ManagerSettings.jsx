@@ -5,7 +5,7 @@ import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
-import { FaCrown, FaUsers, FaExchangeAlt, FaInfoCircle, FaShieldAlt, FaUserTie, FaUserSlash, FaCheckCircle, FaDownload, FaFileDownload, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaCrown, FaUsers, FaExchangeAlt, FaInfoCircle, FaShieldAlt, FaUserTie, FaUserSlash, FaCheckCircle, FaDownload, FaFileDownload, FaToggleOn, FaToggleOff, FaCalendarCheck, FaSave, FaUser } from 'react-icons/fa';
 
 const ManagerSettings = ({ group, onUpdate }) => {
   const [selectedMember, setSelectedMember] = useState('');
@@ -16,7 +16,39 @@ const ManagerSettings = ({ group, onUpdate }) => {
   const { getAuthHeaders, userData } = useAuth();
   const navigate = useNavigate();
 
+  // Bazar schedule state
+  const [scheduleMonth, setScheduleMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [ranges, setRanges] = useState({});
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
   const API_URL = import.meta.env.VITE_API_URL;
+  const activeMembers = group?.members?.filter(m => m.status === 'active') || [];
+
+  const handleRangeChange = (userId, field, value) => {
+    setRanges(prev => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }));
+  };
+
+  const handleSaveSchedule = async () => {
+    const filled = activeMembers.filter(m => ranges[m.userId]?.fromDate && ranges[m.userId]?.toDate);
+    if (!filled.length) { burgerToast.error('Please set at least one member range'); return; }
+    for (const m of filled) {
+      if (ranges[m.userId].toDate < ranges[m.userId].fromDate) {
+        burgerToast.error(`${m.name}: End date must be after start date`); return;
+      }
+    }
+    setSavingSchedule(true);
+    try {
+      const headers = await getAuthHeaders();
+      const payload = filled.map(m => ({ userId: m.userId, fromDate: ranges[m.userId].fromDate, toDate: ranges[m.userId].toDate }));
+      await axios.post(`${API_URL}/bazar-schedule`, { month: scheduleMonth, ranges: payload }, { headers });
+      burgerToast.success('Schedule saved');
+      setRanges({});
+    } catch (error) {
+      burgerToast.error(error.response?.data?.error || 'Failed to save schedule');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   const handleToggleMemberStatus = async (member) => {
     const isActive = member.status === 'active';
@@ -157,7 +189,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
@@ -172,6 +204,193 @@ const ManagerSettings = ({ group, onUpdate }) => {
       </div>
 
 
+
+      {/* Group Members Card */}
+      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
+        <div className="card-body">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-primary/10 p-3 rounded-full">
+              <FaUsers className="text-2xl text-primary" />
+            </div>
+            <div>
+              <h3 className="card-title text-primary">Group Members</h3>
+              <p className="text-sm text-base-content/60">All members in your group</p>
+            </div>
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="table table-zebra">
+              <thead>
+                <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
+                  <th className="font-bold">Name</th>
+                  <th className="font-bold">Email</th>
+                  <th className="font-bold text-center">Role</th>
+                  <th className="font-bold text-center">Status</th>
+                  <th className="font-bold text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group?.members.map(member => {
+                  const isInactive = member.status === 'inactive';
+                  const leftDate = member.leftAt ? format(new Date(member.leftAt), 'dd MMM yyyy') : null;
+                  const rejoinDate = member.rejoinedAt ? format(new Date(member.rejoinedAt), 'dd MMM yyyy') : null;
+                  const isMgr = member.userId === group.managerId;
+                  const isMe = member.userId === userData?.uid;
+                  return (
+                    <tr key={member.userId} className={`${isMgr ? 'bg-warning/5 border-l-4 border-l-warning' : ''} ${isInactive ? 'opacity-60' : ''} hover:bg-primary/5 transition-colors`}>
+                      <td className="font-medium">{member.name}{isMe && <span className="badge badge-sm badge-primary ml-2">You</span>}</td>
+                      <td className="text-base-content/70 text-sm">{member.email}</td>
+                      <td className="text-center">{isMgr ? <span className="badge badge-warning gap-1 font-semibold"><FaCrown className="text-xs" />Manager</span> : <span className="badge badge-ghost">Member</span>}</td>
+                      <td className="text-center">
+                        {isInactive
+                          ? <div className="flex flex-col items-center gap-1"><span className="badge badge-error gap-1"><FaUserSlash className="text-xs" />Inactive</span>{leftDate && <span className="text-xs text-base-content/60">Left: {leftDate}</span>}</div>
+                          : <div className="flex flex-col items-center gap-1"><span className="badge badge-success gap-1"><FaCheckCircle className="text-xs" />Active</span>{rejoinDate && <span className="text-xs text-base-content/60">Rejoined: {rejoinDate}</span>}</div>
+                        }
+                      </td>
+                      <td className="text-center">
+                        {!isMe && !isMgr && (
+                          <button className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`} onClick={() => handleToggleMemberStatus(member)} disabled={togglingMember === member.userId}>
+                            {togglingMember === member.userId ? <span className="loading loading-spinner loading-xs"></span> : isInactive ? <><FaToggleOn />Activate</> : <><FaToggleOff />Deactivate</>}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {group?.members.map(member => {
+              const isInactive = member.status === 'inactive';
+              const isMgr = member.userId === group.managerId;
+              const isMe = member.userId === userData?.uid;
+              return (
+                <div key={member.userId} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  isMgr ? 'border-warning/40 bg-warning/5'
+                  : isInactive ? 'border-base-300 bg-base-200/50 opacity-60'
+                  : 'border-base-300 bg-base-200/50'
+                }`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${isMgr ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'}`}>
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-sm text-base-content">{member.name}</span>
+                        {isMe && <span className="badge badge-xs badge-primary">You</span>}
+                        {isMgr
+                          ? <span className="badge badge-xs badge-warning gap-0.5"><FaCrown className="text-[9px]" />Manager</span>
+                          : <span className="badge badge-xs badge-ghost">Member</span>
+                        }
+                      </div>
+                      <span className={`badge badge-xs mt-0.5 ${isInactive ? 'badge-error' : 'badge-success'}`}>
+                        {isInactive ? 'Inactive' : 'Active'}
+                      </span>
+                    </div>
+                  </div>
+                  {!isMe && !isMgr && (
+                    <button
+                      className={`btn btn-xs shrink-0 ml-2 ${isInactive ? 'btn-success' : 'btn-error'}`}
+                      onClick={() => handleToggleMemberStatus(member)}
+                      disabled={togglingMember === member.userId}
+                    >
+                      {togglingMember === member.userId
+                        ? <span className="loading loading-spinner loading-xs"></span>
+                        : isInactive ? <FaToggleOn /> : <FaToggleOff />
+                      }
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bazar Schedule Card */}
+      <div className="card bg-base-100 shadow-xl border-2 border-primary/30 hover:border-primary transition-all duration-300">
+        <div className="card-body">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-primary/10 p-3 rounded-full">
+              <FaCalendarCheck className="text-2xl text-primary" />
+            </div>
+            <div>
+              <h3 className="card-title text-primary">Set Bazar Schedule</h3>
+              <p className="text-sm text-base-content/60">Assign bazar duty date ranges to members</p>
+            </div>
+          </div>
+
+          <div className="form-control mb-6">
+            <label className="label"><span className="label-text font-semibold">Select Month</span></label>
+            <input
+              type="month"
+              className="input input-bordered w-full sm:max-w-xs focus:border-primary cursor-pointer"
+              value={scheduleMonth}
+              onChange={e => setScheduleMonth(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {activeMembers.map((member, idx) => (
+              <div key={member.userId} className="bg-base-200 hover:bg-primary/5 border border-base-300 hover:border-primary/30 rounded-2xl p-4 transition-all duration-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-primary/10 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-primary font-bold text-sm">{idx + 1}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base-content">{member.name}</span>
+                      {member.userId === userData?.uid && <span className="badge badge-sm badge-primary">You</span>}
+                    </div>
+                    <p className="text-xs text-base-content/50">{member.email}</p>
+                  </div>
+                  {ranges[member.userId]?.fromDate && ranges[member.userId]?.toDate && (
+                    <span className="badge badge-success badge-sm ml-auto">Set</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-xs font-semibold text-base-content/60">From Date</span>
+                    </label>
+                    <input
+                      type="date"
+                      className="input input-bordered input-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      value={ranges[member.userId]?.fromDate || ''}
+                      onChange={e => handleRangeChange(member.userId, 'fromDate', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-xs font-semibold text-base-content/60">To Date</span>
+                    </label>
+                    <input
+                      type="date"
+                      className="input input-bordered input-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      value={ranges[member.userId]?.toDate || ''}
+                      min={ranges[member.userId]?.fromDate || ''}
+                      onChange={e => handleRangeChange(member.userId, 'toDate', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            className={`btn btn-primary w-full gap-2 shadow-md ${savingSchedule ? 'loading' : ''}`}
+            onClick={handleSaveSchedule}
+            disabled={savingSchedule}
+          >
+            {!savingSchedule && <FaSave />}
+            Save Schedule ({activeMembers.filter(m => ranges[m.userId]?.fromDate && ranges[m.userId]?.toDate).length}/{activeMembers.length} set)
+          </button>
+        </div>
+      </div>
 
       {/* Download Report Card */}
       <div className="card bg-base-100 shadow-xl border-2 border-primary/30 hover:border-primary transition-all duration-300">
@@ -285,159 +504,6 @@ const ManagerSettings = ({ group, onUpdate }) => {
         </div>
       </div>
 
-      {/* Group Members Card */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
-        <div className="card-body">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <FaUsers className="text-2xl text-primary" />
-            </div>
-            <div>
-              <h3 className="card-title text-primary">Group Members</h3>
-              <p className="text-sm text-base-content/60">All members in your group</p>
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto hidden sm:block">
-            <table className="table table-zebra">
-              <thead>
-                <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
-                  <th className="font-bold">Name</th>
-                  <th className="font-bold">Email</th>
-                  <th className="font-bold text-center">Role</th>
-                  <th className="font-bold text-center">Status</th>
-                  <th className="font-bold text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group?.members.map(member => {
-                  const isInactive = member.status === 'inactive';
-                  const leftDate = member.leftAt ? format(new Date(member.leftAt), 'dd MMM yyyy') : null;
-                  const rejoinDate = member.rejoinedAt ? format(new Date(member.rejoinedAt), 'dd MMM yyyy') : null;
-                  return (
-                    <tr
-                      key={member.userId}
-                      className={`${member.userId === group.managerId ? 'bg-warning/5 border-l-4 border-l-warning' : ''} ${
-                        isInactive ? 'opacity-60' : ''
-                      } hover:bg-primary/5 transition-colors`}
-                    >
-                      <td className="font-medium">
-                        {member.name}
-                        {member.userId === userData?.uid && (
-                          <span className="badge badge-sm badge-primary ml-2">You</span>
-                        )}
-                      </td>
-                      <td className="text-base-content/70">{member.email}</td>
-                      <td className="text-center">
-                        {member.userId === group.managerId ? (
-                          <span className="badge badge-warning gap-2 font-semibold"><FaCrown />Manager</span>
-                        ) : (
-                          <span className="badge badge-ghost">Member</span>
-                        )}
-                      </td>
-                      <td className="text-center">
-                        {isInactive ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="badge badge-error gap-1"><FaUserSlash className="text-xs" />Inactive</span>
-                            {leftDate && <span className="text-xs text-base-content/60">Left: {leftDate}</span>}
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="badge badge-success gap-1"><FaCheckCircle className="text-xs" />Active</span>
-                            {rejoinDate && <span className="text-xs text-base-content/60">Rejoined: {rejoinDate}</span>}
-                          </div>
-                        )}
-                      </td>
-                      <td className="text-center">
-                        {member.userId !== userData?.uid && member.userId !== group.managerId && (
-                          <button
-                            className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`}
-                            onClick={() => handleToggleMemberStatus(member)}
-                            disabled={togglingMember === member.userId}
-                          >
-                            {togglingMember === member.userId ? (
-                              <span className="loading loading-spinner loading-xs"></span>
-                            ) : isInactive ? (
-                              <><FaToggleOn /> Activate</>
-                            ) : (
-                              <><FaToggleOff /> Deactivate</>
-                            )}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="sm:hidden space-y-3">
-            {group?.members.map(member => {
-              const isInactive = member.status === 'inactive';
-              const leftDate = member.leftAt ? format(new Date(member.leftAt), 'dd MMM yyyy') : null;
-              const rejoinDate = member.rejoinedAt ? format(new Date(member.rejoinedAt), 'dd MMM yyyy') : null;
-              return (
-                <div
-                  key={member.userId}
-                  className={`card bg-base-200 shadow-md border-l-4 ${
-                    member.userId === group.managerId ? 'border-l-warning' : 'border-l-primary/30'
-                  } ${isInactive ? 'opacity-60' : ''}`}
-                >
-                  <div className="card-body p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-base-content">
-                          {member.name}
-                          {member.userId === userData?.uid && (
-                            <span className="badge badge-sm badge-primary ml-2">You</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-base-content/60 mt-0.5">{member.email}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {member.userId === group.managerId ? (
-                          <span className="badge badge-warning gap-1 text-xs"><FaCrown className="text-xs" />Manager</span>
-                        ) : (
-                          <span className="badge badge-ghost text-xs">Member</span>
-                        )}
-                        {isInactive ? (
-                          <span className="badge badge-error gap-1 text-xs"><FaUserSlash className="text-xs" />Inactive</span>
-                        ) : (
-                          <span className="badge badge-success gap-1 text-xs"><FaCheckCircle className="text-xs" />Active</span>
-                        )}
-                      </div>
-                    </div>
-                    {(leftDate || rejoinDate) && (
-                      <p className="text-xs text-base-content/60 mt-1">
-                        {leftDate && `Left: ${leftDate}`}{rejoinDate && ` · Rejoined: ${rejoinDate}`}
-                      </p>
-                    )}
-                    {member.userId !== userData?.uid && member.userId !== group.managerId && (
-                      <div className="mt-3">
-                        <button
-                          className={`btn btn-xs w-full ${isInactive ? 'btn-success' : 'btn-error'} gap-1`}
-                          onClick={() => handleToggleMemberStatus(member)}
-                          disabled={togglingMember === member.userId}
-                        >
-                          {togglingMember === member.userId ? (
-                            <span className="loading loading-spinner loading-xs"></span>
-                          ) : isInactive ? (
-                            <><FaToggleOn /> Activate</>
-                          ) : (
-                            <><FaToggleOff /> Deactivate</>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

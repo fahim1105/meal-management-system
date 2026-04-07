@@ -45,7 +45,11 @@ const MyHistory = () => {
 
   const monthLabel = (m) => format(new Date(m + '-01'), 'MMM yyyy');
 
-  const activeMonths = history.filter(h => h.inRange);
+  const activeMonths = [...history.filter(h => h.inRange)].sort((a, b) => {
+    if (a.isCurrentMonth) return -1;
+    if (b.isCurrentMonth) return 1;
+    return a.month.localeCompare(b.month);
+  });
   const gapMonths = history.filter(h => h.isGap);
   const chartMonths = activeMonths.filter(h => !h.isCurrentMonth && h.hasData);
 

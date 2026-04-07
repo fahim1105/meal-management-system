@@ -8,7 +8,7 @@ import { FaSignOutAlt, FaTrash, FaExclamationTriangle, FaUser, FaEnvelope, FaCal
 
 const GroupSettings = ({ group, isManager }) => {
   const [loading, setLoading] = useState(false);
-  const { getAuthHeaders, userData } = useAuth();
+  const { getAuthHeaders, userData, fetchUserData, currentUser } = useAuth();
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -92,6 +92,7 @@ const GroupSettings = ({ group, isManager }) => {
         }
       });
 
+      await fetchUserData(currentUser);
       navigate('/group-setup');
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Failed to leave group';
@@ -158,6 +159,7 @@ const GroupSettings = ({ group, isManager }) => {
         }
       });
 
+      await fetchUserData(currentUser);
       navigate('/group-setup');
     } catch (error) {
       burgerToast.error(error.response?.data?.error || 'Failed to delete group');

@@ -7,6 +7,9 @@ export default {
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
+      screens: {
+        'xs': '400px',
+      },
       colors: {
         // Custom premium colors
         'premium-blue': {

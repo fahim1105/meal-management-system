@@ -7,6 +7,7 @@ import groupRoutes from './routes/group.js';
 import mealRoutes from './routes/meal.js';
 import financeRoutes from './routes/finance.js';
 import reportRoutes from './routes/report.js';
+import bazarScheduleRoutes from './routes/bazarSchedule.js';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/group', groupRoutes);
 app.use('/api/meal', mealRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/report', reportRoutes);
+app.use('/api/bazar-schedule', bazarScheduleRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 
