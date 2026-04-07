@@ -275,8 +275,11 @@ const ManagerSettings = ({ group, onUpdate }) => {
                   : 'border-base-300 bg-base-200/50'
                 }`}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${isMgr ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'}`}>
-                      {member.name.charAt(0).toUpperCase()}
+                    <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0 font-bold text-sm ${isMgr ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'}`}>
+                      {member.photoURL
+                        ? <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" />
+                        : member.name.charAt(0).toUpperCase()
+                      }
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -338,8 +341,11 @@ const ManagerSettings = ({ group, onUpdate }) => {
             {activeMembers.map((member, idx) => (
               <div key={member.userId} className="bg-base-200 hover:bg-primary/5 border border-base-300 hover:border-primary/30 rounded-2xl p-4 transition-all duration-200">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-primary/10 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-primary font-bold text-sm">{idx + 1}</span>
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-primary/10 font-bold text-primary text-sm">
+                    {member.photoURL
+                      ? <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" />
+                      : member.name.charAt(0).toUpperCase()
+                    }
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

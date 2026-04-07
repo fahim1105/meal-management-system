@@ -17,7 +17,7 @@ const BazarSchedule = ({ group, isManager }) => {
 
   useEffect(() => {
     fetchSchedule();
-  }, [currentMonth]);
+  }, [currentMonth, group]);
 
   const fetchSchedule = async () => {
     setLoading(true);
@@ -182,6 +182,9 @@ const BazarSchedule = ({ group, isManager }) => {
               {[...schedule.ranges].sort((a, b) => new Date(a.fromDate) - new Date(b.fromDate)).map((entry, i) => {
                 const isMe = entry.userId === userData?.uid;
                 const isActive = isTodayInRange(entry.fromDate, entry.toDate);
+                const groupMember = group?.members?.find(m => m.userId === entry.userId);
+                const memberPhoto = groupMember?.photoURL;
+                const displayName = groupMember?.name || entry.name;
                 return (
                   <div
                     key={i}
@@ -193,12 +196,15 @@ const BazarSchedule = ({ group, isManager }) => {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`p-2 rounded-full shrink-0 ${isActive ? 'bg-warning/20' : 'bg-teal-500/10'}`}>
-                          <FaUser className={`text-sm ${isActive ? 'text-warning' : 'text-teal-600'}`} />
+                        <div className={`w-10 h-10 rounded-full shrink-0 overflow-hidden flex items-center justify-center font-bold text-sm ${isActive ? 'bg-warning/20 text-warning' : 'bg-teal-500/10 text-teal-600'}`}>
+                          {memberPhoto
+                            ? <img src={memberPhoto} alt={displayName} className="w-full h-full object-cover" />
+                            : displayName.charAt(0).toUpperCase()
+                          }
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-base-content truncate">{entry.name}</span>
+                            <span className="font-bold text-base-content truncate">{displayName}</span>
                             {isMe && <span className="badge badge-sm badge-primary shrink-0">You</span>}
                             {isActive && <span className="badge badge-sm badge-warning shrink-0">On Duty</span>}
                           </div>

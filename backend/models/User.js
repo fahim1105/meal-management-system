@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  photoURL: {
+    type: String,
+    default: null
+  },
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group',

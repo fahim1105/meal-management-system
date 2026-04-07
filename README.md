@@ -1,141 +1,77 @@
-# Mess Manager - Multi-User Meal Management System
+# 🍽️ Mess Management System
 
-A comprehensive web application for managing group meals, expenses, and finances for shared living spaces.
+A full-stack web application for managing group meal tracking, finances, and bazar scheduling — built for shared living arrangements like student messes, hostels, and shared apartments.
 
-## Features
+---
 
-- **User Authentication**: Firebase-based authentication with email/password
-- **Group Management**: Create or join groups using unique group codes
-- **Role-Based Access**: Manager and Member roles with different permissions
-- **Meal Tracking**: 30-day meal sheet with breakfast, lunch, and dinner tracking
-- **Finance Management**: Track deposits, bazar costs, and automatic calculations
-- **Real-time Calculations**: Automatic meal rate and individual cost calculations
-- **Manager Transfer**: Transfer manager role to any group member
-- **Responsive Design**: Mobile-friendly UI with Tailwind CSS and DaisyUI
-
-## Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
-- React.js
-- React Router
-- Tailwind CSS + DaisyUI
-- Firebase Authentication
-- Axios
-- React Hot Toast
-- date-fns
+| Technology | Purpose |
+|---|---|
+| React 19 | UI framework |
+| Vite 7 | Build tool & dev server |
+| Tailwind CSS v4 | Utility-first styling |
+| DaisyUI v5 | Component library |
+| React Router v7 | Client-side routing |
+| Axios | HTTP requests |
+| Firebase (Client) | Authentication |
+| Recharts | Financial analytics charts |
+| Lottie React | Animated loaders |
+| SweetAlert2 | Confirmation dialogs |
+| date-fns | Date formatting & utilities |
+| React Icons | Icon library |
+| Framer Motion | Animations |
 
 ### Backend
-- Node.js + Express
-- MongoDB + Mongoose
-- Firebase Admin SDK
-- CORS
+| Technology | Purpose |
+|---|---|
+| Node.js + Express | REST API server |
+| MongoDB + Mongoose | Database & ODM |
+| Firebase Admin SDK | Token verification |
+| PDFKit | PDF report generation |
+| Vercel | Serverless deployment |
 
-## Setup Instructions
+---
 
-### Prerequisites
-- Node.js (v16 or higher)
-- MongoDB (local or Atlas)
-- Firebase Project
+## ⏱️ Project Duration
 
-### 1. Firebase Setup
+**~3–4 weeks** of active development, including iterative UI improvements, bug fixes, and feature additions.
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project
-3. Enable Email/Password authentication
-4. Get your web app configuration
-5. Generate a service account key for Firebase Admin SDK
+---
 
-### 2. Backend Setup
+## 📋 Description
 
-```bash
-cd backend
-npm install
-```
+Mess Management System is a collaborative platform designed to simplify the day-to-day financial and meal management of a shared living group. Members can track their daily meals, managers can record bazar costs and deposits, and everyone gets a transparent view of their financial standing at any time.
 
-Create `.env` file in backend directory:
+The app supports multiple groups, role-based access (manager vs member), dark/light theme, and generates downloadable PDF reports.
 
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/mess-manager
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY="your-private-key"
-FIREBASE_CLIENT_EMAIL=your-client-email
-```
+---
 
-Start the backend server:
+## ✨ Key Features
 
-```bash
-npm run dev
-```
+- **Group Management** — Create or join a group with a unique code. Manager can transfer role, deactivate/reactivate members.
+- **Meal Sheet** — Daily meal tracking (breakfast, lunch, dinner) with guest meal support. Manager edits, all members view.
+- **Finance Summary** — Real-time calculation of meal rate, per-member cost, deposit, and balance. Tabbed deposit & bazar history with sticky header/footer scroll.
+- **Bazar Schedule** — Manager assigns date ranges to members for bazar duty. All members can view and download as PDF.
+- **My History** — Personal monthly history with charts showing meal trends, deposit vs cost, and balance over time.
+- **PDF Reports** — Manager can download a full monthly report (finance summary, member breakdown, bazar history).
+- **Dark / Light Theme** — Persistent theme toggle across the app.
+- **Responsive Design** — Fully optimized for mobile, tablet, and desktop.
+- **Authentication** — Firebase-based email/password auth with protected routes.
 
-### 3. Frontend Setup
+---
 
-```bash
-# From root directory
-npm install
-```
+## 🚧 Challenges Faced
 
-Create `.env` file in root directory:
+One of the trickiest parts was handling guest meal counts alongside own meals — getting the calculation right on both frontend and backend without off-by-one errors took several iterations. Another significant challenge was implementing sticky table headers and footers with a scrollable body, since native CSS `sticky` breaks inside `overflow` containers. The solution was splitting the table into three separate tables (header, scrollable body, footer) with synchronized `colgroup` widths to keep columns aligned.
 
-```env
-VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-auth-domain
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_API_URL=http://localhost:5000/api
-```
+Real-time group state management was also tricky — after a user left a group, the app wasn't redirecting without a page reload because the context still held the old `groupId`. This was fixed by immediately refreshing `userData` from the server after the leave API call. PDF generation had locale inconsistency issues where `toLocaleDateString()` produced different date formats across server environments, which was resolved with a custom UTC-based formatter. Finally, making the dashboard tabs work on very small screens without wrapping required a custom `xs` breakpoint and a vertical icon+text layout.
 
-Start the development server:
+---
 
-```bash
-npm run dev
-```
+## 🔮 Future Improvements
 
-## API Endpoints
+The most impactful next step would be adding push notifications so members get alerted on their bazar duty day or when a new deposit is recorded. Meal preferences or opt-out options would also make the system more flexible for members who skip certain meals. Beyond meals, the platform could be extended to handle shared utility bills, rent, and other group expenses.
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `GET /api/auth/me` - Get current user data
-
-### Group Management
-- `POST /api/group/create` - Create new group
-- `POST /api/group/join` - Join existing group
-- `GET /api/group/my-group` - Get user's group
-- `POST /api/group/transfer-manager` - Transfer manager role
-
-### Meal Management
-- `GET /api/meal/:month` - Get meal sheet for month
-- `POST /api/meal/toggle` - Toggle meal status
-
-### Finance Management
-- `GET /api/finance/:month` - Get finance data for month
-- `POST /api/finance/deposit` - Add member deposit
-- `POST /api/finance/bazar` - Add bazar cost
-- `GET /api/finance/summary/:month` - Get financial summary
-
-## Usage
-
-1. **Register**: Create an account with email and password
-2. **Create/Join Group**: Either create a new group or join existing one with group code
-3. **Manager Functions**:
-   - Mark meals for all members
-   - Add deposits for members
-   - Add bazar costs
-   - Transfer manager role
-4. **Member Functions**:
-   - View meal sheet
-   - View personal and group financial summary
-
-## Calculations
-
-- **Total Meals** = Sum of all meals (breakfast + lunch + dinner) for all members
-- **Total Bazar** = Sum of all bazar costs
-- **Meal Rate** = Total Bazar ÷ Total Meals
-- **Individual Cost** = Member's Total Meals × Meal Rate
-- **Balance** = Deposit - Individual Cost
-
-## License
-
-MIT
+On the scheduling side, multi-month bazar planning without manual month switching would improve the manager experience significantly. A super-admin dashboard for overseeing multiple groups, an automated month rollover system that archives old data and resets for the new month, and eventually a React Native mobile app are all natural next steps for making this a more complete product.

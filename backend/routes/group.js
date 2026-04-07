@@ -104,7 +104,19 @@ router.get('/my-group', verifyToken, async (req, res) => {
     }
 
     const group = await Group.findById(user.groupId);
-    res.json({ group });
+    
+    // Attach photoURL from User collection to each member
+    const memberUserIds = group.members.map(m => m.userId);
+    const users = await User.find({ uid: { $in: memberUserIds } }, 'uid photoURL');
+    const photoMap = Object.fromEntries(users.map(u => [u.uid, u.photoURL]));
+    
+    const groupObj = group.toObject();
+    groupObj.members = groupObj.members.map(m => ({
+      ...m,
+      photoURL: photoMap[m.userId] || null
+    }));
+    
+    res.json({ group: groupObj });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

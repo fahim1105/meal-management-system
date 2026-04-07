@@ -3,7 +3,10 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import axios from 'axios';
@@ -100,6 +103,46 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfileData = async ({ name, photoFile }) => {
+    try {
+      const headers = await getAuthHeaders();
+      let photoURL = userData?.photoURL || null;
+
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append('image', photoFile);
+        const imgbbRes = await axios.post(
+          `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
+          formData
+        );
+        photoURL = imgbbRes.data.data.url;
+      }
+
+      const res = await axios.put(`${API_URL}/auth/profile`, { name, photoURL }, { headers });
+      setUserData(res.data.user);
+      burgerToast.success('Profile updated');
+    } catch (error) {
+      burgerToast.error('Failed to update profile');
+      throw error;
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, newPassword);
+      burgerToast.success('Password changed successfully');
+    } catch (error) {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        burgerToast.error('Current password is incorrect');
+      } else {
+        burgerToast.error('Failed to change password');
+      }
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (!auth) {
       setLoading(false);
@@ -129,7 +172,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     getAuthHeaders,
     fetchUserData,
-    userDataLoading
+    userDataLoading,
+    updateProfileData,
+    changePassword
   };
 
   return (
