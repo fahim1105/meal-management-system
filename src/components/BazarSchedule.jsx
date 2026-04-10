@@ -95,7 +95,10 @@ const BazarSchedule = ({ group, isManager }) => {
 
   const isTodayInRange = (fromDate, toDate) => {
     try {
-      return isWithinInterval(today, { start: new Date(fromDate), end: new Date(toDate) });
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const fromStr = format(new Date(fromDate), 'yyyy-MM-dd');
+      const toStr = format(new Date(toDate), 'yyyy-MM-dd');
+      return todayStr >= fromStr && todayStr <= toStr;
     } catch {
       return false;
     }

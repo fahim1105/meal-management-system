@@ -317,15 +317,18 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
               </div>
 
               {/* Name input */}
-              <div className="relative">
-                <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/30 text-sm" />
-                <input
-                  type="text"
-                  className="input input-bordered w-full pl-10 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder="Full name"
-                />
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Full Name</span></label>
+                <div className="relative">
+                  <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/30 text-sm" />
+                  <input
+                    type="text"
+                    className="input input-bordered w-full pl-10 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder="Full name"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">
