@@ -1,19 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import { FaShoppingCart, FaUtensils, FaChartLine, FaMoneyBillWave, FaUsers, FaClipboardList, FaCalendarAlt, FaTrash, FaChevronLeft, FaChevronRight, FaHistory } from 'react-icons/fa';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { queryKeys, fetchFinance, fetchSummary } from '../lib/queries';
 
-const FinanceSummary = ({ group, isManager }) => {
-  const [finance, setFinance] = useState(null);
-  const [summary, setSummary] = useState(null);
+const FinanceSummary = ({ group, isManager, onUpdate }) => {
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [loading, setLoading] = useState(true);
-  const [summaryLoading, setSummaryLoading] = useState(true);
   const { getAuthHeaders, userData } = useAuth();
+  const queryClient = useQueryClient();
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const { data: finance, isLoading: financeLoading } = useQuery({
+    queryKey: queryKeys.finance(currentMonth),
+    queryFn: () => fetchFinance(getAuthHeaders, currentMonth),
+    enabled: !!group,
+  });
+
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: queryKeys.summary(currentMonth),
+    queryFn: () => fetchSummary(getAuthHeaders, currentMonth),
+    enabled: !!group,
+  });
+
+  const loading = financeLoading && !finance;
+
+  const invalidateFinance = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.finance(currentMonth) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.summary(currentMonth) });
+  };
 
   const [depositUserId, setDepositUserId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
@@ -25,45 +44,9 @@ const FinanceSummary = ({ group, isManager }) => {
   const [deletingBazarId, setDeletingBazarId] = useState(null);
   const [historyTab, setHistoryTab] = useState('deposit');
 
-  // Bazar schedule state
-  const [schedule, setSchedule] = useState(null);
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [newDate, setNewDate] = useState('');
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-
-  const API_URL = import.meta.env.VITE_API_URL;  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const chartAxisColor = isDark ? '#9ca3af' : '#6b7280';
   const chartGridColor = isDark ? '#374151' : '#e5e7eb';
-
-  useEffect(() => {
-    fetchFinance();
-    fetchSummary();
-  }, [currentMonth]);
-
-  const fetchFinance = async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/finance/${currentMonth}`, { headers });
-      setFinance(response.data.finance);
-    } catch (error) {
-      burgerToast.error('Failed to fetch finance data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSummary = async () => {
-    setSummaryLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/finance/summary/${currentMonth}`, { headers });
-      setSummary(response.data);
-    } catch (error) {
-      console.error('Failed to fetch summary');
-    } finally {
-      setSummaryLoading(false);
-    }
-  };
 
   const handleAddDeposit = async (e) => {
     e.preventDefault();
@@ -74,8 +57,7 @@ const FinanceSummary = ({ group, isManager }) => {
       burgerToast.success('Deposit added successfully');
       setDepositUserId('');
       setDepositAmount('');
-      fetchFinance();
-      fetchSummary();
+      invalidateFinance();
     } catch (error) {
       burgerToast.error('Failed to add deposit');
     } finally {
@@ -92,8 +74,7 @@ const FinanceSummary = ({ group, isManager }) => {
       burgerToast.success('Bazar cost added successfully');
       setBazarAmount('');
       setBazarDescription('');
-      fetchFinance();
-      fetchSummary();
+      invalidateFinance();
     } catch (error) {
       burgerToast.error('Failed to add bazar cost');
     } finally {
@@ -120,8 +101,7 @@ const FinanceSummary = ({ group, isManager }) => {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/finance/bazar/${currentMonth}/${bazarId}`, { headers });
       burgerToast.success('Bazar entry deleted');
-      fetchFinance();
-      fetchSummary();
+      invalidateFinance();
     } catch (error) {
       burgerToast.error('Failed to delete bazar entry');
     } finally {
@@ -148,8 +128,7 @@ const FinanceSummary = ({ group, isManager }) => {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/finance/deposit/${currentMonth}/${depositId}`, { headers });
       burgerToast.success('Deposit entry deleted');
-      fetchFinance();
-      fetchSummary();
+      invalidateFinance();
     } catch (error) {
       burgerToast.error('Failed to delete deposit');
     } finally {
@@ -299,70 +278,6 @@ const FinanceSummary = ({ group, isManager }) => {
           </div>
         </div>
       </div>
-
-      {/* Manager Actions */}
-      {isManager && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card bg-base-100 shadow-xl border-2 border-primary/20 hover:border-primary transition-all duration-300">
-            <div className="card-body">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <FaMoneyBillWave className="text-2xl text-primary" />
-                </div>
-                <div>
-                  <h2 className="card-title text-primary">Add Deposit</h2>
-                  <p className="text-sm text-base-content/60">Record member deposits</p>
-                </div>
-              </div>
-              <form onSubmit={handleAddDeposit} className="space-y-4">
-                <div className="form-control">
-                  <label className="label"><span className="label-text font-semibold">Select Member</span></label>
-                  <select className="select select-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={depositUserId} onChange={(e) => setDepositUserId(e.target.value)} required>
-                    <option value="">Choose a member...</option>
-                    {group?.members.filter(m => m.status === 'active').map(member => (
-                      <option key={member.userId} value={member.userId}>{member.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-control">
-                  <label className="label"><span className="label-text font-semibold">Amount (৳)</span></label>
-                  <input type="number" placeholder="Enter amount..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required />
-                </div>
-                <button type="submit" className={`btn btn-primary w-full shadow-md ${depositLoading ? 'loading' : ''}`} disabled={depositLoading}>
-                  {!depositLoading && 'Add Deposit'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div className="card bg-base-100 shadow-xl border-2 border-primary/20 hover:border-primary transition-all duration-300">
-            <div className="card-body">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <FaShoppingCart className="text-2xl text-primary" />
-                </div>
-                <div>
-                  <h2 className="card-title text-primary">Add Bazar Cost</h2>
-                  <p className="text-sm text-base-content/60">Record shopping expenses</p>
-                </div>
-              </div>
-              <form onSubmit={handleAddBazar} className="space-y-4">
-                <div className="form-control">
-                  <label className="label"><span className="label-text font-semibold">Amount (৳)</span></label>
-                  <input type="number" placeholder="Enter amount..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={bazarAmount} onChange={(e) => setBazarAmount(e.target.value)} required />
-                </div>
-                <div className="form-control">
-                  <label className="label"><span className="label-text font-semibold">Description</span></label>
-                  <input type="text" placeholder="e.g., Rice, vegetables, fish..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={bazarDescription} onChange={(e) => setBazarDescription(e.target.value)} />
-                </div>
-                <button type="submit" className={`btn btn-primary w-full shadow-md ${bazarLoading ? 'loading' : ''}`} disabled={bazarLoading}>
-                  {!bazarLoading && 'Add Bazar Cost'}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 1. Member Summary */}
       <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
@@ -667,9 +582,10 @@ const FinanceSummary = ({ group, isManager }) => {
         </div>
       </div>
 
+
+
       {/* 4. Financial Analytics — last */}
-      {summary && (
-        <div className="space-y-6">
+      {summary && (        <div className="space-y-6">
           <h2 className="text-3xl font-bold text-primary text-center">Financial Analytics</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">

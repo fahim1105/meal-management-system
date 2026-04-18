@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from '../components/BurgerToast';
-import { FaUsers, FaUserPlus, FaKey, FaArrowLeft, FaCheckCircle, FaLock } from 'react-icons/fa';
+import { format } from 'date-fns';
+import { FaUsers, FaUserPlus, FaKey, FaArrowLeft, FaCheckCircle, FaLock, FaClock, FaTimes, FaHourglassHalf } from 'react-icons/fa';
+import { queryKeys, fetchMyRequestStatus } from '../lib/queries';
+import Swal from 'sweetalert2';
 
 const GroupSetup = () => {
   const [mode, setMode] = useState('');
@@ -12,16 +16,78 @@ const GroupSetup = () => {
   const [loading, setLoading] = useState(false);
   const { getAuthHeaders, fetchUserData, currentUser, userData } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Check for pending join request
+  const { data: requestStatus, isLoading: requestLoading } = useQuery({
+    queryKey: queryKeys.myRequestStatus(),
+    queryFn: () => fetchMyRequestStatus(getAuthHeaders),
+    enabled: !userData?.groupId, // Only check if user has no group
+  });
+
+  const hasPendingRequest = requestStatus?.hasRequest && requestStatus?.request?.status === 'pending';
 
   // Already in a group — redirect to dashboard
   useEffect(() => {
     if (userData?.groupId) navigate('/dashboard');
   }, [userData]);
 
+  // Cancel request mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (requestId) => {
+      const headers = await getAuthHeaders();
+      const res = await axios.delete(
+        `${API_URL}/group/cancel-request`,
+        { headers, data: { requestId } }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.myRequestStatus() 
+      });
+      burgerToast.success('Request cancelled');
+      setMode(''); // Reset to mode selection
+    },
+    onError: () => {
+      burgerToast.error('Failed to cancel request');
+    },
+  });
+
+  const handleCancelRequest = async () => {
+    const result = await Swal.fire({
+      title: 'Cancel Join Request?',
+      text: 'Are you sure you want to cancel your join request?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Cancel',
+      cancelButtonText: 'Keep Request',
+      reverseButtons: true,
+      customClass: { 
+        popup: 'rounded-2xl', 
+        confirmButton: 'btn btn-error', 
+        cancelButton: 'btn btn-ghost' 
+      }
+    });
+
+    if (result.isConfirmed) {
+      cancelMutation.mutate(requestStatus.request._id);
+    }
+  };
+
   const handleCreateGroup = async (e) => {
     e.preventDefault();
+    
+    // Check if user has pending request
+    if (hasPendingRequest) {
+      burgerToast.error('You have a pending join request. Cancel it first to create a group.');
+      return;
+    }
+
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
@@ -40,17 +106,28 @@ const GroupSetup = () => {
 
   const handleJoinGroup = async (e) => {
     e.preventDefault();
+    
+    // Check if user has pending request
+    if (hasPendingRequest) {
+      burgerToast.error('You already have a pending join request. Cancel it first to join another group.');
+      return;
+    }
+
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const response = await axios.post(`${API_URL}/group/join`, { groupCode }, { headers });
+      const response = await axios.post(`${API_URL}/group/request-join`, { groupCode }, { headers });
       
-      if (currentUser) await fetchUserData(currentUser);
+      burgerToast.success('Join request submitted! Waiting for manager approval.');
       
-      burgerToast.success('Joined group successfully!');
-      navigate('/dashboard');
+      // Invalidate request status to show pending state
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.myRequestStatus() 
+      });
+      
+      setMode(''); // Reset to show pending state
     } catch (error) {
-      burgerToast.error(error.response?.data?.error || 'Failed to join group');
+      burgerToast.error(error.response?.data?.error || 'Failed to submit join request');
     } finally {
       setLoading(false);
     }
@@ -65,12 +142,73 @@ const GroupSetup = () => {
               Group Setup
             </h1>
             <p className="text-base-content/70 text-lg">
-              Create a new group or join an existing one to get started
+              {hasPendingRequest ? 'Your join request is pending approval' : 'Create a new group or join an existing one to get started'}
             </p>
           </div>
 
-          {/* Mode Selection */}
-          {!mode && (
+          {/* Pending Request State */}
+          {hasPendingRequest && (
+            <div className="card bg-base-100 shadow-2xl border-t-4 border-t-warning max-w-2xl mx-auto animate-fadeIn mb-6">
+              <div className="card-body p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-warning/10 p-3 rounded-full">
+                    <FaHourglassHalf className="text-3xl text-warning animate-pulse" />
+                  </div>
+                  <div>
+                    <h2 className="card-title text-2xl font-bold text-warning">Join Request Pending</h2>
+                    <p className="text-sm text-base-content/70">Waiting for manager approval</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="alert bg-warning/10 border-warning/30">
+                    <FaClock className="text-warning" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-warning">Request Status: Pending</p>
+                      <p className="text-base-content/70">
+                        Requested: {format(new Date(requestStatus.request.requestedAt), 'MMM dd, yyyy • hh:mm a')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-base-200 p-4 rounded-xl">
+                    <p className="text-sm text-base-content/70 mb-3">
+                      ⚠️ While your request is pending, you cannot:
+                    </p>
+                    <ul className="space-y-2 text-sm">
+                      <li className="flex items-center gap-2 text-base-content/60">
+                        <FaTimes className="text-error" />
+                        <span>Create a new group</span>
+                      </li>
+                      <li className="flex items-center gap-2 text-base-content/60">
+                        <FaTimes className="text-error" />
+                        <span>Join another group</span>
+                      </li>
+                    </ul>
+                    <p className="text-sm text-base-content/70 mt-3">
+                      ✓ You can cancel your request to take other actions
+                    </p>
+                  </div>
+
+                  <button 
+                    className={`btn btn-error btn-block ${cancelMutation.isPending ? 'loading' : ''}`}
+                    onClick={handleCancelRequest}
+                    disabled={cancelMutation.isPending}
+                  >
+                    {!cancelMutation.isPending && (
+                      <>
+                        <FaTimes />
+                        Cancel Join Request
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mode Selection - Disabled if pending request */}
+          {!mode && !hasPendingRequest && (
             <div className="grid md:grid-cols-2 gap-6 animate-fadeIn">
               {/* Create Group Card */}
               <div 
@@ -255,8 +393,8 @@ const GroupSetup = () => {
                   <div className="alert bg-secondary/10 border-secondary/30">
                     <FaCheckCircle className="text-secondary" />
                     <div className="text-sm">
-                      <p className="font-semibold text-secondary">Quick Setup</p>
-                      <p className="text-base-content/70">You'll be added as a member instantly</p>
+                      <p className="font-semibold text-secondary">Manager Approval Required</p>
+                      <p className="text-base-content/70">Your request will be reviewed by the group manager</p>
                     </div>
                   </div>
 
@@ -274,10 +412,10 @@ const GroupSetup = () => {
                       className={`btn btn-secondary flex-1 shadow-lg ${loading ? 'loading' : ''}`}
                       disabled={loading}
                     >
-                      {loading ? 'Joining...' : (
+                      {loading ? 'Submitting Request...' : (
                         <>
                           <FaKey />
-                          Join Group
+                          Request to Join
                         </>
                       )}
                     </button>

@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router';
-import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { FaUtensils, FaChartBar, FaCoffee, FaHamburger, FaMoon, FaBan, FaChartPie, FaChartLine } from 'react-icons/fa';
 import burgerToast from '../components/BurgerToast';
 import LottieLoader from '../components/LottieLoader';
+import { queryKeys, fetchHistory } from '../lib/queries';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
@@ -17,8 +17,6 @@ const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981'];
 const MyHistory = () => {
   const { userData, getAuthHeaders } = useAuth();
   const { theme } = useTheme();
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL;
 
@@ -26,22 +24,14 @@ const MyHistory = () => {
   const axisColor = isDark ? '#9ca3af' : '#6b7280';
   const gridColor = isDark ? '#374151' : '#e5e7eb';
 
-  useEffect(() => {
-    if (!userData?.groupId) { navigate('/group-setup'); return; }
-    fetchHistory();
-  }, [userData]);
+  const { data: history = [], isLoading: loading } = useQuery({
+    queryKey: queryKeys.history(),
+    queryFn: () => fetchHistory(getAuthHeaders),
+    enabled: !!userData?.groupId,
+    onError: () => burgerToast.error('Failed to load history'),
+  });
 
-  const fetchHistory = async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const res = await axios.get(`${API_URL}/finance/my-history`, { headers });
-      setHistory(res.data.history || []);
-    } catch (e) {
-      burgerToast.error('Failed to load history');
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!userData?.groupId) { navigate('/group-setup'); return null; }
 
   const monthLabel = (m) => format(new Date(m + '-01'), 'MMM yyyy');
 

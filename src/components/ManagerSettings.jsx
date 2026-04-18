@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
-import { FaCrown, FaUsers, FaExchangeAlt, FaInfoCircle, FaShieldAlt, FaUserTie, FaUserSlash, FaCheckCircle, FaDownload, FaFileDownload, FaToggleOn, FaToggleOff, FaCalendarCheck, FaSave, FaUser } from 'react-icons/fa';
+import { FaCrown, FaUsers, FaExchangeAlt, FaInfoCircle, FaShieldAlt, FaUserTie, FaUserSlash, FaCheckCircle, FaDownload, FaFileDownload, FaToggleOn, FaToggleOff, FaCalendarCheck, FaSave, FaUser, FaMoneyBillWave, FaShoppingCart } from 'react-icons/fa';
+import { queryKeys, fetchSchedule } from '../lib/queries';
+import PendingRequestsList from './PendingRequestsList';
 
 const ManagerSettings = ({ group, onUpdate }) => {
   const [selectedMember, setSelectedMember] = useState('');
@@ -15,17 +18,84 @@ const ManagerSettings = ({ group, onUpdate }) => {
   const [downloading, setDownloading] = useState(false);
   const { getAuthHeaders, userData } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const currentMonth = format(new Date(), 'yyyy-MM');
+
+  const invalidateFinance = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.finance(currentMonth) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.summary(currentMonth) });
+  };
 
   // Bazar schedule state
   const [scheduleMonth, setScheduleMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [ranges, setRanges] = useState({});
   const [savingSchedule, setSavingSchedule] = useState(false);
 
+  // Fetch existing schedule for selected month and pre-fill ranges
+  const { data: existingSchedule } = useQuery({
+    queryKey: queryKeys.schedule(scheduleMonth),
+    queryFn: () => fetchSchedule(getAuthHeaders, scheduleMonth),
+    enabled: !!group,
+  });
+
+  useEffect(() => {
+    if (existingSchedule?.ranges?.length) {
+      const prefilled = {};
+      existingSchedule.ranges.forEach(r => {
+        prefilled[r.userId] = {
+          fromDate: format(new Date(r.fromDate), 'yyyy-MM-dd'),
+          toDate: format(new Date(r.toDate), 'yyyy-MM-dd'),
+        };
+      });
+      setRanges(prefilled);
+    } else {
+      setRanges({});
+    }
+  }, [existingSchedule, scheduleMonth]);
+
+  // Deposit & Bazar state
+  const [depositUserId, setDepositUserId] = useState('');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [bazarAmount, setBazarAmount] = useState('');
+  const [bazarDescription, setBazarDescription] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [bazarLoading, setBazarLoading] = useState(false);
+
+  const [activeManagerTab, setActiveManagerTab] = useState('members');
+
   const API_URL = import.meta.env.VITE_API_URL;
   const activeMembers = group?.members?.filter(m => m.status === 'active') || [];
 
   const handleRangeChange = (userId, field, value) => {
     setRanges(prev => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }));
+  };
+
+  const handleAddDeposit = async (e) => {
+    e.preventDefault();
+    setDepositLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      await axios.post(`${API_URL}/finance/deposit`, { month: currentMonth, userId: depositUserId, amount: parseFloat(depositAmount) }, { headers });
+      burgerToast.success('Deposit added successfully');
+      setDepositUserId('');
+      setDepositAmount('');
+      invalidateFinance();
+    } catch { burgerToast.error('Failed to add deposit'); }
+    finally { setDepositLoading(false); }
+  };
+
+  const handleAddBazar = async (e) => {
+    e.preventDefault();
+    setBazarLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      await axios.post(`${API_URL}/finance/bazar`, { month: currentMonth, amount: parseFloat(bazarAmount), description: bazarDescription }, { headers });
+      burgerToast.success('Bazar cost added successfully');
+      setBazarAmount('');
+      setBazarDescription('');
+      invalidateFinance();
+    } catch { burgerToast.error('Failed to add bazar cost'); }
+    finally { setBazarLoading(false); }
   };
 
   const handleSaveSchedule = async () => {
@@ -42,7 +112,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
       const payload = filled.map(m => ({ userId: m.userId, fromDate: ranges[m.userId].fromDate, toDate: ranges[m.userId].toDate }));
       await axios.post(`${API_URL}/bazar-schedule`, { month: scheduleMonth, ranges: payload }, { headers });
       burgerToast.success('Schedule saved');
-      setRanges({});
+      queryClient.invalidateQueries({ queryKey: queryKeys.schedule(scheduleMonth) });
     } catch (error) {
       burgerToast.error(error.response?.data?.error || 'Failed to save schedule');
     } finally {
@@ -188,9 +258,16 @@ const ManagerSettings = ({ group, onUpdate }) => {
     }
   };
 
+  const tabs = [
+    { id: 'members', label: 'Members', icon: FaUsers },
+    { id: 'finance', label: 'Finance', icon: FaMoneyBillWave },
+    { id: 'schedule', label: 'Schedule', icon: FaCalendarCheck },
+    { id: 'settings', label: 'Settings', icon: FaShieldAlt },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
+    <div className="space-y-5">
+      {/* Header */}
       <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-3 rounded-full">
@@ -203,7 +280,30 @@ const ManagerSettings = ({ group, onUpdate }) => {
         </div>
       </div>
 
+      {/* Tab Bar */}
+      <div className="bg-base-200/60 rounded-2xl p-1.5 flex gap-1">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveManagerTab(id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+              activeManagerTab === id
+                ? 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-md shadow-primary/30 scale-[1.02]'
+                : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
+            }`}
+          >
+            <Icon className="text-sm flex-shrink-0" />
+            <span className="hidden xs:inline">{label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Tab Content */}
 
+      {/* Members Tab */}
+      {activeManagerTab === 'members' && (
+      <>
+      {/* Pending Join Requests */}
+      <PendingRequestsList />
 
       {/* Group Members Card */}
       <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
@@ -313,8 +413,76 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </div>
         </div>
       </div>
+      </>)}
 
-      {/* Bazar Schedule Card */}
+      {/* Finance Tab */}
+      {activeManagerTab === 'finance' && (
+      <>{/* Add Deposit & Bazar Cost */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card bg-base-100 shadow-xl border-2 border-primary/20 hover:border-primary transition-all duration-300">
+          <div className="card-body">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-primary/10 p-3 rounded-full">
+                <FaMoneyBillWave className="text-2xl text-primary" />
+              </div>
+              <div>
+                <h3 className="card-title text-primary">Add Deposit</h3>
+                <p className="text-sm text-base-content/60">Record member deposits</p>
+              </div>
+            </div>
+            <form onSubmit={handleAddDeposit} className="space-y-4">
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Select Member</span></label>
+                <select className="select select-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={depositUserId} onChange={(e) => setDepositUserId(e.target.value)} required>
+                  <option value="">Choose a member...</option>
+                  {group?.members.filter(m => m.status === 'active').map(member => (
+                    <option key={member.userId} value={member.userId}>{member.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Amount (৳)</span></label>
+                <input type="number" min="0.01" step="0.01" placeholder="Enter amount..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required />
+              </div>
+              <button type="submit" className={`btn btn-primary w-full shadow-md ${depositLoading ? 'loading' : ''}`} disabled={depositLoading}>
+                {!depositLoading && 'Add Deposit'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="card bg-base-100 shadow-xl border-2 border-primary/20 hover:border-primary transition-all duration-300">
+          <div className="card-body">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-primary/10 p-3 rounded-full">
+                <FaShoppingCart className="text-2xl text-primary" />
+              </div>
+              <div>
+                <h3 className="card-title text-primary">Add Bazar Cost</h3>
+                <p className="text-sm text-base-content/60">Record shopping expenses</p>
+              </div>
+            </div>
+            <form onSubmit={handleAddBazar} className="space-y-4">
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Amount (৳)</span></label>
+                <input type="number" min="0.01" step="0.01" placeholder="Enter amount..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={bazarAmount} onChange={(e) => setBazarAmount(e.target.value)} required />
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Description</span></label>
+                <input type="text" placeholder="e.g., Rice, vegetables, fish..." className="input input-bordered w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" value={bazarDescription} onChange={(e) => setBazarDescription(e.target.value)} />
+              </div>
+              <button type="submit" className={`btn btn-primary w-full shadow-md ${bazarLoading ? 'loading' : ''}`} disabled={bazarLoading}>
+                {!bazarLoading && 'Add Bazar Cost'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      </>)}
+
+      {/* Schedule Tab */}
+      {activeManagerTab === 'schedule' && (
+      <>{/* Bazar Schedule Card */}
       <div className="card bg-base-100 shadow-xl border-2 border-primary/30 hover:border-primary transition-all duration-300">
         <div className="card-body">
           <div className="flex items-center gap-3 mb-4">
@@ -338,7 +506,14 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            {activeMembers.map((member, idx) => (
+            {[...activeMembers].sort((a, b) => {
+              const aDate = ranges[a.userId]?.fromDate || '';
+              const bDate = ranges[b.userId]?.fromDate || '';
+              if (!aDate && !bDate) return 0;
+              if (!aDate) return 1;
+              if (!bDate) return -1;
+              return aDate.localeCompare(bDate);
+            }).map((member, idx) => (
               <div key={member.userId} className="bg-base-200 hover:bg-primary/5 border border-base-300 hover:border-primary/30 rounded-2xl p-4 transition-all duration-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-primary/10 font-bold text-primary text-sm">
@@ -397,8 +572,11 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </button>
         </div>
       </div>
+      </>)}
 
-      {/* Download Report Card */}
+      {/* Settings Tab */}
+      {activeManagerTab === 'settings' && (
+      <>{/* Download Report Card */}
       <div className="card bg-base-100 shadow-xl border-2 border-primary/30 hover:border-primary transition-all duration-300">
         <div className="card-body">
           <div className="flex items-center gap-3 mb-4">
@@ -509,6 +687,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </form>
         </div>
       </div>
+      </>)}
 
     </div>
   );

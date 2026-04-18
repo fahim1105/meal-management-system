@@ -1,3 +1,7 @@
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { EffectCoverflow, Autoplay } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/effect-coverflow';
 import { FaUtensils, FaChartLine, FaUsers, FaCalendarCheck, FaMoneyBillWave, FaShieldAlt } from 'react-icons/fa';
 
 const features = [
@@ -5,65 +9,54 @@ const features = [
     icon: FaUtensils,
     title: 'Meal Tracking',
     description: 'Track daily breakfast, lunch, and dinner for every member. Support for guest meals with automatic count.',
-    color: 'from-blue-500 to-blue-600',
-    border: 'border-blue-500/30',
-    iconBg: 'bg-blue-500/10',
-    titleColor: 'text-blue-500',
+    gradient: 'from-blue-500 to-blue-700',
+    glow: 'shadow-blue-500/40',
   },
   {
     icon: FaChartLine,
     title: 'Finance Management',
     description: 'Record deposits and bazar costs. Auto-calculate meal rates and each member\'s balance with visual charts.',
-    color: 'from-purple-500 to-purple-600',
-    border: 'border-purple-500/30',
-    iconBg: 'bg-purple-500/10',
-    titleColor: 'text-purple-500',
+    gradient: 'from-purple-500 to-purple-700',
+    glow: 'shadow-purple-500/40',
   },
   {
     icon: FaUsers,
     title: 'Group Management',
     description: 'Create or join a mess group with a unique code. Manager can activate/deactivate members and transfer roles.',
-    color: 'from-green-500 to-green-600',
-    border: 'border-green-500/30',
-    iconBg: 'bg-green-500/10',
-    titleColor: 'text-green-500',
+    gradient: 'from-emerald-500 to-green-700',
+    glow: 'shadow-emerald-500/40',
   },
   {
     icon: FaCalendarCheck,
     title: 'Monthly Reports',
     description: 'Download detailed PDF reports for any month — financial summary, meal breakdown, and bazar history.',
-    color: 'from-orange-500 to-orange-600',
-    border: 'border-orange-500/30',
-    iconBg: 'bg-orange-500/10',
-    titleColor: 'text-orange-500',
+    gradient: 'from-orange-500 to-orange-700',
+    glow: 'shadow-orange-500/40',
   },
   {
     icon: FaMoneyBillWave,
     title: 'Deposit History',
     description: 'Full log of who deposited how much and when. Manager can add or delete entries with complete audit trail.',
-    color: 'from-emerald-500 to-emerald-600',
-    border: 'border-emerald-500/30',
-    iconBg: 'bg-emerald-500/10',
-    titleColor: 'text-emerald-500',
+    gradient: 'from-teal-500 to-teal-700',
+    glow: 'shadow-teal-500/40',
   },
   {
     icon: FaShieldAlt,
     title: 'Role-Based Access',
     description: 'Managers get full control. Members get read-only view. Secure Firebase authentication for everyone.',
-    color: 'from-rose-500 to-rose-600',
-    border: 'border-rose-500/30',
-    iconBg: 'bg-rose-500/10',
-    titleColor: 'text-rose-500',
+    gradient: 'from-rose-500 to-rose-700',
+    glow: 'shadow-rose-500/40',
   },
 ];
 
 const FeaturesSection = () => {
   return (
-    <section className="py-20 px-4 bg-base-200">
+    <section className="py-12 px-4 bg-gradient-to-b from-base-100 to-base-200">
       <div className="max-w-6xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center mb-14">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent mb-4">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <span className="badge badge-primary badge-lg mb-4 px-5 py-3 text-sm font-semibold">Features</span>
+          <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent mb-4">
             Everything You Need
           </h2>
           <p className="text-base-content/60 text-lg max-w-xl mx-auto">
@@ -71,29 +64,52 @@ const FeaturesSection = () => {
           </p>
         </div>
 
-        {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Swiper Coverflow */}
+        <div className="overflow-hidden">
+        <Swiper
+          effect="coverflow"
+          grabCursor={true}
+          centeredSlides={true}
+          slidesPerView="auto"
+          coverflowEffect={{
+            rotate: 30,
+            stretch: 0,
+            depth: 120,
+            modifier: 1.5,
+            slideShadows: true,
+          }}
+          autoplay={{
+            delay: 2500,
+            disableOnInteraction: false,
+          }}
+          pagination={false}
+          loop={true}
+          modules={[EffectCoverflow, Autoplay]}
+          className="pb-14"
+        >
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <div
+              <SwiperSlide
                 key={feature.title}
-                className={`card bg-base-100 shadow-lg hover:shadow-xl border-2 ${feature.border} hover:border-primary/40 transition-all duration-300 hover:-translate-y-1`}
+                style={{ width: '300px' }}
               >
-                <div className="card-body p-6">
-                  <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.color} mb-4 shadow-md`}>
-                    <Icon className="text-white text-2xl" />
+                <div className={`rounded-3xl bg-gradient-to-br ${feature.gradient} p-0.5 shadow-2xl ${feature.glow} h-full`}>
+                  <div className="bg-base-100 rounded-3xl p-8 h-full flex flex-col gap-5">
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-lg ${feature.glow}`}>
+                      <Icon className="text-white text-3xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-base-content mb-2">{feature.title}</h3>
+                      <p className="text-base-content/60 text-sm leading-relaxed">{feature.description}</p>
+                    </div>
+                    <div className={`mt-auto h-1 w-16 rounded-full bg-gradient-to-r ${feature.gradient}`}></div>
                   </div>
-                  <h3 className={`text-xl font-bold ${feature.titleColor} mb-2`}>
-                    {feature.title}
-                  </h3>
-                  <p className="text-base-content/60 text-sm leading-relaxed">
-                    {feature.description}
-                  </p>
                 </div>
-              </div>
+              </SwiperSlide>
             );
           })}
+        </Swiper>
         </div>
       </div>
     </section>

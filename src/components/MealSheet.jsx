@@ -5,19 +5,26 @@ import burgerToast from './BurgerToast';
 import { format } from 'date-fns';
 import { FaUtensils, FaCalendarAlt, FaInfoCircle, FaCoffee, FaHamburger, FaMoon, FaUserSlash, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
-const MealSheet = ({ group, isManager }) => {
-  const [mealSheet, setMealSheet] = useState(null);
+const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
+  const [mealSheet, setMealSheet] = useState(initialMealSheet || null);
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialMealSheet);
   const [pendingChanges, setPendingChanges] = useState({});
   const [saving, setSaving] = useState(false);
   const { getAuthHeaders } = useAuth();
 
   const API_URL = import.meta.env.VITE_API_URL;
 
+  const initialMonthRef = useState(format(new Date(), 'yyyy-MM'))[0];
+
   useEffect(() => {
+    // Skip fetch on initial mount if prefetched data was provided
+    if (currentMonth === initialMonthRef && initialMealSheet) {
+      setPendingChanges({});
+      return;
+    }
     fetchMealSheet();
-    setPendingChanges({}); // Clear pending changes when month changes
+    setPendingChanges({});
   }, [currentMonth]);
 
   const fetchMealSheet = async () => {
@@ -267,6 +274,7 @@ const MealSheet = ({ group, isManager }) => {
 
       if (errorCount === 0) {
         burgerToast.success(`Successfully saved ${successCount} changes`);
+        onUpdate?.(); // invalidate summary + finance in Dashboard
       } else {
         burgerToast.warning(`Saved ${successCount} changes, ${errorCount} failed`);
         if (errors && errors.length > 0) {
@@ -409,37 +417,37 @@ const MealSheet = ({ group, isManager }) => {
       {/* Premium Legend - Mobile & Desktop Optimized */}
       <div className="card bg-base-100 shadow-xl border-2 border-primary/20">
         <div className="card-body p-4 sm:p-6">
-          {/* Mobile: Grid Layout, Desktop: Flex Row */}
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center">
+          {/* Mobile: 3 cols, Desktop: Flex Row */}
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 sm:gap-4 items-stretch sm:items-center">
             {/* Breakfast Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 p-3 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 sm:bg-blue-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-blue-200/50">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaCoffee className="text-white text-2xl sm:text-2xl" />
+            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 sm:bg-blue-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-blue-200/50">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
+                <FaCoffee className="text-white text-lg sm:text-2xl" />
               </div>
-              <span className="font-bold text-blue-700 text-base sm:text-lg">Breakfast</span>
+              <span className="font-bold text-blue-700 text-xs sm:text-lg text-center">Breakfast</span>
             </div>
             
             {/* Lunch Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 p-3 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 sm:bg-purple-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-purple-200/50">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaHamburger className="text-white text-2xl sm:text-2xl" />
+            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 sm:bg-purple-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-purple-200/50">
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
+                <FaHamburger className="text-white text-lg sm:text-2xl" />
               </div>
-              <span className="font-bold text-purple-700 text-base sm:text-lg">Lunch</span>
+              <span className="font-bold text-purple-700 text-xs sm:text-lg text-center">Lunch</span>
             </div>
             
             {/* Dinner Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 p-3 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 sm:bg-green-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl col-span-2 sm:col-span-1 max-w-[50%] sm:max-w-none mx-auto border-2 border-green-200/50">
-              <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaMoon className="text-white text-2xl sm:text-2xl" />
+            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 sm:bg-green-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-green-200/50">
+              <div className="bg-gradient-to-br from-green-500 to-green-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
+                <FaMoon className="text-white text-lg sm:text-2xl" />
               </div>
-              <span className="font-bold text-green-700 text-base sm:text-lg">Dinner</span>
+              <span className="font-bold text-green-700 text-xs sm:text-lg text-center">Dinner</span>
             </div>
             
             {/* Spacer - Hidden on mobile */}
             <div className="hidden sm:block flex-grow"></div>
             
             {/* Info Card - Full width on mobile, auto on desktop */}
-            <div className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-br from-blue-500 to-blue-600 px-4 sm:px-6 py-3 sm:py-3 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg border-2 border-blue-400 transition-all hover:shadow-xl">
+            <div className="col-span-3 sm:col-span-1 flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-br from-blue-500 to-blue-600 px-4 sm:px-6 py-3 sm:py-3 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg border-2 border-blue-400 transition-all hover:shadow-xl">
               <FaInfoCircle className="text-white text-lg sm:text-xl flex-shrink-0" />
               <span className="text-xs sm:text-sm text-white text-center sm:text-left leading-tight">
                 <span className="font-bold block sm:inline">Number = Meal Count</span>

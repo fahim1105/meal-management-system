@@ -98,11 +98,11 @@ router.get('/my-history', verifyToken, async (req, res) => {
       }
 
       const mealRate = groupTotalMeals > 0 ? totalBazar / groupTotalMeals : 0;
-      const cost = totalMeals * mealRate;
+      const cost = Math.round(totalMeals * mealRate * 100) / 100;
       const deposit = finance?.deposits
         .filter(d => d.userId === req.user.uid)
         .reduce((s, d) => s + d.amount, 0) || 0;
-      const balance = deposit - cost;
+      const balance = Math.round((deposit - cost) * 100) / 100;
 
       return {
         month,
@@ -147,6 +147,9 @@ router.get('/:month', verifyToken, async (req, res) => {
 router.post('/deposit', verifyToken, async (req, res) => {
   try {
     const { month, userId, amount } = req.body;
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Amount must be greater than 0' });
+    }
     const currentUser = await User.findOne({ uid: req.user.uid });
 
     if (!currentUser || !currentUser.groupId) {
@@ -177,6 +180,9 @@ router.post('/deposit', verifyToken, async (req, res) => {
 router.post('/bazar', verifyToken, async (req, res) => {
   try {
     const { month, amount, description } = req.body;
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Amount must be greater than 0' });
+    }
     const currentUser = await User.findOne({ uid: req.user.uid });
 
     if (!currentUser || !currentUser.groupId) {
@@ -343,9 +349,19 @@ router.get('/summary/:month', verifyToken, async (req, res) => {
     const totalMeals = Object.values(memberStats).reduce((sum, m) => sum + m.totalMeals, 0);
     const mealRate = totalMeals > 0 ? totalBazar / totalMeals : 0;
 
-    Object.keys(memberStats).forEach(userId => {
-      memberStats[userId].cost = memberStats[userId].totalMeals * mealRate;
-      memberStats[userId].balance = memberStats[userId].deposit - memberStats[userId].cost;
+    // Use precise rounding: assign cost to all members, then adjust last member to absorb rounding diff
+    const memberIds = Object.keys(memberStats);
+    let assignedCost = 0;
+    memberIds.forEach((userId, i) => {
+      if (i < memberIds.length - 1) {
+        const cost = Math.round(memberStats[userId].totalMeals * mealRate * 100) / 100;
+        memberStats[userId].cost = cost;
+        assignedCost += cost;
+      } else {
+        // Last member absorbs rounding difference
+        memberStats[userId].cost = Math.round((totalBazar - assignedCost) * 100) / 100;
+      }
+      memberStats[userId].balance = Math.round((memberStats[userId].deposit - memberStats[userId].cost) * 100) / 100;
     });
 
     res.json({

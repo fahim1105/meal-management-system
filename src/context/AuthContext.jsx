@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userDataLoading, setUserDataLoading] = useState(false);
+  const [userDataLoading, setUserDataLoading] = useState(true);
   const API_URL = import.meta.env.VITE_API_URL;
 
   const getAuthHeaders = async () => {
@@ -88,16 +88,14 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserData = async (user) => {
     if (!user) return;
-    
     setUserDataLoading(true);
     try {
       const token = await user.getIdToken();
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers = { Authorization: `Bearer ${token}` };
+      const response = await axios.get(`${API_URL}/auth/me`, { headers });
       setUserData(response.data.user);
-    } catch (error) {
-      // silently fail — user will see empty state
+    } catch {
+      // silently fail
     } finally {
       setUserDataLoading(false);
     }

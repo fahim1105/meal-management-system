@@ -1,36 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
-import { format, isWithinInterval } from 'date-fns';
-import { FaCalendarCheck, FaTrash, FaChevronLeft, FaChevronRight, FaCalendarAlt, FaUser, FaFilePdf } from 'react-icons/fa';
+import { format } from 'date-fns';
+import { FaCalendarCheck, FaTrash, FaChevronLeft, FaChevronRight, FaCalendarAlt, FaFilePdf } from 'react-icons/fa';
+import { queryKeys, fetchSchedule } from '../lib/queries';
 
 const BazarSchedule = ({ group, isManager }) => {
   const { getAuthHeaders, userData } = useAuth();
+  const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [schedule, setSchedule] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL;
 
-  useEffect(() => {
-    fetchSchedule();
-  }, [currentMonth, group]);
-
-  const fetchSchedule = async () => {
-    setLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await axios.get(`${API_URL}/bazar-schedule/${currentMonth}`, { headers });
-      setSchedule(res.data.schedule);
-    } catch {
-      setSchedule(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: schedule, isLoading: loading } = useQuery({
+    queryKey: queryKeys.schedule(currentMonth),
+    queryFn: () => fetchSchedule(getAuthHeaders, currentMonth),
+    enabled: !!group,
+  });
 
   const navigateMonth = (dir) => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -56,7 +46,7 @@ const BazarSchedule = ({ group, isManager }) => {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/bazar-schedule/${currentMonth}`, { headers });
       burgerToast.success('Schedule deleted');
-      setSchedule(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.schedule(currentMonth) });
     } catch {
       burgerToast.error('Failed to delete schedule');
     }
@@ -89,9 +79,6 @@ const BazarSchedule = ({ group, isManager }) => {
       setDownloading(false);
     }
   };
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   const isTodayInRange = (fromDate, toDate) => {
     try {

@@ -191,7 +191,7 @@ router.post('/update-count', verifyToken, async (req, res) => {
 
     // Update count
     const countField = `${mealType}Count`;
-    userMeal[countField] = Math.max(0, parseInt(count) || 1);
+    userMeal[countField] = Math.max(1, parseInt(count) || 1);
     
     mealSheet.days.set(dayKey, dayMeals);
     await mealSheet.save();

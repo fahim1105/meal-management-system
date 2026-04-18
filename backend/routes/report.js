@@ -89,9 +89,17 @@ router.get('/download/:month', verifyToken, async (req, res) => {
     const totalMeals = Object.values(memberStats).reduce((sum, m) => sum + m.totalMeals, 0);
     const mealRate = totalMeals > 0 ? totalBazar / totalMeals : 0;
 
-    Object.keys(memberStats).forEach(userId => {
-      memberStats[userId].cost = memberStats[userId].totalMeals * mealRate;
-      memberStats[userId].balance = memberStats[userId].deposit - memberStats[userId].cost;
+    const memberIds = Object.keys(memberStats);
+    let assignedCost = 0;
+    memberIds.forEach((userId, i) => {
+      if (i < memberIds.length - 1) {
+        const cost = Math.round(memberStats[userId].totalMeals * mealRate * 100) / 100;
+        memberStats[userId].cost = cost;
+        assignedCost += cost;
+      } else {
+        memberStats[userId].cost = Math.round((totalBazar - assignedCost) * 100) / 100;
+      }
+      memberStats[userId].balance = Math.round((memberStats[userId].deposit - memberStats[userId].cost) * 100) / 100;
     });
 
     // Create PDF with better settings
