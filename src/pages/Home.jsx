@@ -1,18 +1,39 @@
 import { Link } from 'react-router';
 import { FaSignInAlt, FaUserPlus, FaTachometerAlt, FaUsers, FaCheckCircle, FaUtensils, FaChartLine, FaCalendarCheck, FaFileDownload, FaArrowRight } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys, fetchGroup } from '../lib/queries';
 import FeaturesSection from '../components/FeaturesSection';
 import HowItWorks from '../components/HowItWorks';
 import StatsStrip from '../components/StatsStrip';
 import CTABanner from '../components/CTABanner';
 import HomeDashboard from '../components/HomeDashboard';
+import ResponsiveChatWrapper from '../components/Chat/ResponsiveChatWrapper';
 
 const Home = () => {
-  const { currentUser, userData, userDataLoading } = useAuth();
+  const { currentUser, userData, userDataLoading, getAuthHeaders } = useAuth();
+
+  // Fetch group data to check if user is manager
+  const { data: group } = useQuery({
+    queryKey: queryKeys.group(),
+    queryFn: () => fetchGroup(getAuthHeaders),
+    enabled: !!userData?.groupId,
+  });
+
+  // Check if current user is the manager
+  const isManager = group?.managerId === userData?.uid;
 
   // Logged-in + has group → show HomeDashboard directly
   if (currentUser && !userDataLoading && userData?.groupId) {
-    return <HomeDashboard />;
+    return (
+      <>
+        <HomeDashboard />
+        <ResponsiveChatWrapper 
+          groupId={userData.groupId} 
+          isManager={isManager} 
+        />
+      </>
+    );
   }
 
   return (

@@ -32,6 +32,21 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Additional CORS headers for Vercel
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.header('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 
 // Connect to MongoDB before handling requests
@@ -43,9 +58,18 @@ app.use(async (req, res, next) => {
     console.error('Database connection failed:', error);
     res.status(500).json({ 
       error: 'Database connection failed. Please try again later.',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
+});
+
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
+  res.status(error.status || 500).json({
+    error: error.message || 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
 });
 
 app.use('/api/auth', authRoutes);

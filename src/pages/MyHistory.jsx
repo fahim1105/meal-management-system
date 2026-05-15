@@ -9,10 +9,8 @@ import LottieLoader from '../components/LottieLoader';
 import { queryKeys, fetchHistory } from '../lib/queries';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
+  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-
-const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981'];
 
 const MyHistory = () => {
   const { userData, getAuthHeaders } = useAuth();
@@ -23,6 +21,7 @@ const MyHistory = () => {
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#9ca3af' : '#6b7280';
   const gridColor = isDark ? '#374151' : '#e5e7eb';
+  const bgColor = isDark ? 'rgba(31, 41, 55, 0.5)' : 'rgba(255, 255, 255, 0.5)';
 
   const { data: history = [], isLoading: loading } = useQuery({
     queryKey: queryKeys.history(),
@@ -56,10 +55,10 @@ const MyHistory = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload?.length) {
       return (
-        <div className="bg-base-100 p-3 rounded-xl shadow-xl border border-primary/20 text-sm">
-          <p className="font-bold text-primary mb-1">{label}</p>
+        <div className="bg-base-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border-2 border-primary/30 text-sm">
+          <p className="font-bold text-primary mb-2 text-base">{label}</p>
           {payload.map((e, i) => (
-            <p key={i} style={{ color: e.color }}>
+            <p key={i} style={{ color: e.color }} className="font-semibold">
               {e.name}: {['Deposit', 'Cost', 'Balance'].includes(e.name) ? `৳${Number(e.value).toFixed(2)}` : e.value}
             </p>
           ))}
@@ -73,9 +72,10 @@ const MyHistory = () => {
     if (active && payload?.length) {
       const total = pieData.reduce((s, d) => s + d.value, 0);
       return (
-        <div className="bg-base-100 p-3 rounded-xl shadow-xl border border-primary/20 text-sm">
-          <p style={{ color: payload[0].payload.fill }} className="font-bold">{payload[0].name}</p>
-          <p className="text-base-content">{payload[0].value} meals ({((payload[0].value / total) * 100).toFixed(1)}%)</p>
+        <div className="bg-base-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border-2 border-primary/30">
+          <p style={{ color: payload[0].payload.fill }} className="font-bold text-lg mb-1">{payload[0].name}</p>
+          <p className="text-base-content font-semibold">{payload[0].value} meals</p>
+          <p className="text-base-content/60 text-sm">({((payload[0].value / total) * 100).toFixed(1)}%)</p>
         </div>
       );
     }
@@ -135,77 +135,182 @@ const MyHistory = () => {
 
             {/* Pie — overall meal distribution */}
             {pieData.length > 0 && (
-              <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
-                <div className="card-body p-5">
-                  <h3 className="font-bold text-primary mb-1 flex items-center gap-2">
-                    <FaChartPie className="text-sm" /> Overall Meal Distribution
-                  </h3>
-                  <p className="text-xs text-base-content/50 mb-2">All completed months combined</p>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={85}
-                        dataKey="value"
-                        labelLine={false}
-                        label={renderPieLabel}
-                      >
-                        {pieData.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<PieTooltip />} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+              <div className="card bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 shadow-2xl border border-purple-200/50 dark:border-purple-800/50 hover:shadow-purple-500/20 transition-all duration-300">
+                <div className="card-body p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-xl shadow-lg">
+                      <FaChartPie className="text-2xl text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-purple-700 dark:text-purple-400">Overall Meal Distribution</h3>
+                      <p className="text-xs text-base-content/60">All completed months combined</p>
+                    </div>
+                  </div>
+                  <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <defs>
+                          <linearGradient id="breakfastGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
+                          </linearGradient>
+                          <linearGradient id="lunchGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.8} />
+                          </linearGradient>
+                          <linearGradient id="dinnerGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
+                          </linearGradient>
+                        </defs>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          innerRadius={50}
+                          dataKey="value"
+                          labelLine={false}
+                          label={renderPieLabel}
+                          paddingAngle={3}
+                        >
+                          {pieData.map((entry, i) => (
+                            <Cell 
+                              key={i} 
+                              fill={`url(#${entry.name.toLowerCase()}Gradient)`}
+                              stroke="white"
+                              strokeWidth={3}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<PieTooltip />} />
+                        <Legend 
+                          wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
+                          iconType="circle"
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Deposit per month — Line chart */}
+            {/* Deposit per month — Area chart with gradient */}
             {chartMonths.length >= 2 && (
-              <div className="card bg-base-100 shadow-xl border-t-4 border-t-green-500">
-                <div className="card-body p-5">
-                  <h3 className="font-bold text-green-600 mb-1 flex items-center gap-2">
-                    <FaChartLine className="text-sm" /> Monthly Deposit
-                  </h3>
-                  <p className="text-xs text-base-content/50 mb-2">How much you deposited each month</p>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Deposit: h.deposit }))}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                      <XAxis dataKey="name" stroke={axisColor} tick={{ fontSize: 11 }} />
-                      <YAxis stroke={axisColor} tick={{ fontSize: 11 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="Deposit" stroke="#10b981" strokeWidth={2.5} dot={{ r: 5, fill: '#10b981' }} activeDot={{ r: 7 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+              <div className="card bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 shadow-2xl border border-emerald-200/50 dark:border-emerald-800/50 hover:shadow-emerald-500/20 transition-all duration-300">
+                <div className="card-body p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-3 rounded-xl shadow-lg">
+                      <FaChartLine className="text-2xl text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-400">Monthly Deposit</h3>
+                      <p className="text-xs text-base-content/60">How much you deposited each month</p>
+                    </div>
+                  </div>
+                  <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Deposit: h.deposit }))}>
+                        <defs>
+                          <linearGradient id="colorDeposit" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
+                        <XAxis 
+                          dataKey="name" 
+                          stroke={axisColor} 
+                          style={{ fontSize: '12px', fontWeight: '600' }}
+                        />
+                        <YAxis 
+                          stroke={axisColor} 
+                          style={{ fontSize: '12px', fontWeight: '600' }}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 2 }} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="Deposit" 
+                          stroke="#10b981" 
+                          strokeWidth={3}
+                          fillOpacity={1} 
+                          fill="url(#colorDeposit)"
+                          dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                          activeDot={{ r: 8, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Row 2: Meal cost per month — Bar chart */}
+          {/* Row 2: Meal cost per month — Enhanced Bar chart */}
           {chartMonths.length >= 2 && (
-            <div className="card bg-base-100 shadow-xl border-t-4 border-t-orange-400">
-              <div className="card-body p-5">
-                <h3 className="font-bold text-orange-500 mb-1 flex items-center gap-2">
-                  <FaUtensils className="text-sm" /> Monthly Meal Cost
-                </h3>
-                <p className="text-xs text-base-content/50 mb-2">How much your meals cost each month</p>
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Cost: parseFloat(h.cost.toFixed(2)), Meals: h.totalMeals }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey="name" stroke={axisColor} tick={{ fontSize: 11 }} />
-                    <YAxis yAxisId="left" stroke={axisColor} tick={{ fontSize: 11 }} />
-                    <YAxis yAxisId="right" orientation="right" stroke={axisColor} tick={{ fontSize: 11 }} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="Cost" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    <Bar yAxisId="right" dataKey="Meals" fill="#a78bfa" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="card bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 shadow-2xl border border-orange-200/50 dark:border-orange-800/50 hover:shadow-orange-500/20 transition-all duration-300">
+              <div className="card-body p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-lg">
+                    <FaUtensils className="text-2xl text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-orange-700 dark:text-orange-400">Monthly Meal Cost</h3>
+                    <p className="text-xs text-base-content/60">How much your meals cost each month</p>
+                  </div>
+                </div>
+                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Cost: parseFloat(h.cost.toFixed(2)), Meals: h.totalMeals }))}>
+                      <defs>
+                        <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#ea580c" stopOpacity={0.7} />
+                        </linearGradient>
+                        <linearGradient id="mealsGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.7} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={axisColor} 
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <YAxis 
+                        yAxisId="left" 
+                        stroke={axisColor} 
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <YAxis 
+                        yAxisId="right" 
+                        orientation="right" 
+                        stroke={axisColor} 
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(249, 115, 22, 0.1)' }} />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
+                        iconType="circle"
+                      />
+                      <Bar 
+                        yAxisId="left" 
+                        dataKey="Cost" 
+                        fill="url(#costGradient)" 
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={60}
+                      />
+                      <Bar 
+                        yAxisId="right" 
+                        dataKey="Meals" 
+                        fill="url(#mealsGradient)" 
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={60}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}

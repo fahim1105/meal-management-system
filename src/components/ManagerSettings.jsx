@@ -16,7 +16,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
   const [togglingMember, setTogglingMember] = useState(null);
   const [downloadMonth, setDownloadMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [downloading, setDownloading] = useState(false);
-  const { getAuthHeaders, userData } = useAuth();
+  const { getAuthHeaders, userData, refreshUserToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentMonth = format(new Date(), 'yyyy-MM');
@@ -206,6 +206,9 @@ const ManagerSettings = ({ group, onUpdate }) => {
         { headers }
       );
       
+      // Refresh user data to get updated manager status
+      await refreshUserToken();
+      
       // Show success message
       await Swal.fire({
         title: 'Success!',
@@ -302,9 +305,6 @@ const ManagerSettings = ({ group, onUpdate }) => {
       {/* Members Tab */}
       {activeManagerTab === 'members' && (
       <>
-      {/* Pending Join Requests */}
-      <PendingRequestsList />
-
       {/* Group Members Card */}
       <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
         <div className="card-body">
@@ -413,6 +413,9 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </div>
         </div>
       </div>
+
+      {/* Pending Join Requests */}
+      <PendingRequestsList />
       </>)}
 
       {/* Finance Tab */}

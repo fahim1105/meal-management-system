@@ -30,4 +30,13 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Method to convert user to JSON with groupId as string
+userSchema.methods.toJSON = function() {
+  const obj = this.toObject();
+  if (obj.groupId) {
+    obj.groupId = obj.groupId.toString();
+  }
+  return obj;
+};
+
 export default mongoose.model('User', userSchema);

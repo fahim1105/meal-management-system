@@ -3,8 +3,22 @@ import Group from '../models/Group.js';
 import User from '../models/User.js';
 import JoinRequest from '../models/JoinRequest.js';
 import { verifyToken } from '../middleware/auth.js';
+import admin from '../config/firebase.js';
 
 const router = express.Router();
+
+// Helper function to set custom claims
+const setUserClaims = async (uid, groupId) => {
+  try {
+    if (admin.apps.length > 0) {
+      await admin.auth().setCustomUserClaims(uid, { 
+        groupId: groupId ? String(groupId) : null 
+      });
+    }
+  } catch (error) {
+    console.error('Error setting custom claims:', error.message);
+  }
+};
 
 const generateGroupCode = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -41,6 +55,9 @@ router.post('/create', verifyToken, async (req, res) => {
 
     user.groupId = group._id;
     await user.save();
+
+    // Set custom claims with new group ID
+    await setUserClaims(uid, group._id);
 
     res.status(201).json({ group });
   } catch (error) {
@@ -89,6 +106,9 @@ router.post('/join', verifyToken, async (req, res) => {
 
     user.groupId = group._id;
     await user.save();
+
+    // Set custom claims with new group ID
+    await setUserClaims(uid, group._id);
 
     res.json({ group, rejoined: existingMemberIndex !== -1 });
   } catch (error) {
@@ -447,6 +467,9 @@ router.post('/approve-request', verifyToken, async (req, res) => {
     // Update user's groupId
     requestingUser.groupId = group._id;
     await requestingUser.save();
+
+    // Set custom claims with new group ID
+    await setUserClaims(joinRequest.userId, group._id);
 
     res.json({
       message: 'Join request approved successfully',

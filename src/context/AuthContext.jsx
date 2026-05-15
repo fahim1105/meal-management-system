@@ -50,8 +50,14 @@ export const AuthProvider = ({ children }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      setUserData(response.data.user);
-      return response.data.user;
+      // CRITICAL FIX: Ensure groupId is a string, not an object
+      const userData = response.data.user;
+      if (userData.groupId && typeof userData.groupId === 'object') {
+        userData.groupId = userData.groupId._id || userData.groupId.toString();
+      }
+      
+      setUserData(userData);
+      return userData;
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
       burgerToast.error(errorMessage);
@@ -93,9 +99,20 @@ export const AuthProvider = ({ children }) => {
       const token = await user.getIdToken();
       const headers = { Authorization: `Bearer ${token}` };
       const response = await axios.get(`${API_URL}/auth/me`, { headers });
-      setUserData(response.data.user);
-    } catch {
-      // silently fail
+      
+      // CRITICAL FIX: Ensure groupId is a string, not an object
+      const userData = response.data.user;
+      if (userData.groupId && typeof userData.groupId === 'object') {
+        // Convert MongoDB ObjectId to string
+        userData.groupId = userData.groupId._id || userData.groupId.toString();
+      }
+      
+      setUserData(userData);
+      
+      // Force token refresh to get updated custom claims
+      await user.getIdToken(true);
+    } catch (error) {
+      console.error('❌ Error fetching user data:', error);
     } finally {
       setUserDataLoading(false);
     }
@@ -117,7 +134,14 @@ export const AuthProvider = ({ children }) => {
       }
 
       const res = await axios.put(`${API_URL}/auth/profile`, { name, photoURL }, { headers });
-      setUserData(res.data.user);
+      
+      // CRITICAL FIX: Ensure groupId is a string, not an object
+      const updatedUserData = res.data.user;
+      if (updatedUserData.groupId && typeof updatedUserData.groupId === 'object') {
+        updatedUserData.groupId = updatedUserData.groupId._id || updatedUserData.groupId.toString();
+      }
+      
+      setUserData(updatedUserData);
       burgerToast.success('Profile updated');
     } catch (error) {
       burgerToast.error('Failed to update profile');
@@ -161,6 +185,33 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const refreshUserToken = async () => {
+    if (currentUser) {
+      try {
+        // Force token refresh to get updated custom claims
+        await currentUser.getIdToken(true);
+        
+        // Refetch user data
+        await fetchUserData(currentUser);
+      } catch (error) {
+        console.error('Error refreshing token:', error);
+      }
+    }
+  };
+
+  const checkTokenClaims = async () => {
+    if (currentUser) {
+      try {
+        const tokenResult = await currentUser.getIdTokenResult();
+        return tokenResult.claims;
+      } catch (error) {
+        console.error('Error checking token:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
   const value = {
     currentUser,
     userData,
@@ -172,7 +223,9 @@ export const AuthProvider = ({ children }) => {
     fetchUserData,
     userDataLoading,
     updateProfileData,
-    changePassword
+    changePassword,
+    refreshUserToken,
+    checkTokenClaims
   };
 
   return (

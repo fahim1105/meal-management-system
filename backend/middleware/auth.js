@@ -8,10 +8,20 @@ export const verifyToken = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
+    // Check if Firebase Admin is initialized
+    if (admin.apps.length === 0) {
+      console.error('Firebase Admin not initialized');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
+    }
+
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
+    console.error('Token verification error:', error.message);
+    return res.status(401).json({ 
+      error: 'Invalid token',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };

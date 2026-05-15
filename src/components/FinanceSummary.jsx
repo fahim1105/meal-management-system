@@ -5,7 +5,7 @@ import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
-import { FaShoppingCart, FaUtensils, FaChartLine, FaMoneyBillWave, FaUsers, FaClipboardList, FaCalendarAlt, FaTrash, FaChevronLeft, FaChevronRight, FaHistory } from 'react-icons/fa';
+import { FaShoppingCart, FaUtensils, FaChartLine, FaMoneyBillWave, FaUsers, FaClipboardList, FaCalendarAlt, FaTrash, FaChevronLeft, FaChevronRight, FaHistory, FaBalanceScale } from 'react-icons/fa';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { queryKeys, fetchFinance, fetchSummary } from '../lib/queries';
 
@@ -231,49 +231,105 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-6">
+        {/* 1. Total Deposits */}
+        <div className="card bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+          <div className="card-body p-3 md:p-6">
+            <div className="flex items-center justify-between md:flex-col md:items-start">
+              <div className="flex-1 md:w-full">
+                <div className="flex items-center justify-between mb-1 md:mb-4">
+                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Deposits</p>
+                  <div className="text-2xl md:text-4xl opacity-30 md:opacity-30"><FaMoneyBillWave /></div>
+                </div>
+                {summaryLoading ? (
+                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
+                ) : (
+                  <p className="text-lg md:text-4xl font-bold leading-none">৳{finance?.deposits?.reduce((sum, d) => sum + d.amount, 0)?.toFixed(2) || '0.00'}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Total Bazar */}
         <div className="card bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium mb-1">Total Bazar</p>
+          <div className="card-body p-3 md:p-6">
+            <div className="flex items-center justify-between md:flex-col md:items-start">
+              <div className="flex-1 md:w-full">
+                <div className="flex items-center justify-between mb-1 md:mb-4">
+                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Bazar</p>
+                  <div className="text-2xl md:text-4xl opacity-30"><FaShoppingCart /></div>
+                </div>
                 {summaryLoading ? (
-                  <div className="h-10 w-28 bg-white/30 rounded-lg animate-pulse" />
+                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
                 ) : (
-                  <p className="text-4xl font-bold">৳{summary?.totalBazar?.toFixed(2) || '0.00'}</p>
+                  <p className="text-lg md:text-4xl font-bold leading-none">৳{summary?.totalBazar?.toFixed(2) || '0.00'}</p>
                 )}
               </div>
-              <div className="text-5xl opacity-20"><FaShoppingCart /></div>
             </div>
           </div>
         </div>
+
+        {/* 3. Net Balance */}
+        <div className={`card text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${
+          summaryLoading ? 'bg-gradient-to-br from-teal-500 to-cyan-600' : 
+          ((finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 0) - (summary?.totalBazar || 0)) >= 0 
+            ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+            : 'bg-gradient-to-br from-red-500 to-pink-600'
+        }`}>
+          <div className="card-body p-3 md:p-6">
+            <div className="flex items-center justify-between md:flex-col md:items-start">
+              <div className="flex-1 md:w-full">
+                <div className="flex items-center justify-between mb-1 md:mb-4">
+                  <p className="text-white/90 text-xs md:text-sm font-semibold">Net Balance</p>
+                  <div className="text-2xl md:text-4xl opacity-30"><FaBalanceScale /></div>
+                </div>
+                {summaryLoading ? (
+                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
+                ) : (
+                  <p className="text-lg md:text-4xl font-bold leading-none">
+                    ৳{((finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 0) - (summary?.totalBazar || 0)).toFixed(2)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Total Meals */}
         <div className="card bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium mb-1">Total Meals</p>
+          <div className="card-body p-3 md:p-6">
+            <div className="flex items-center justify-between md:flex-col md:items-start">
+              <div className="flex-1 md:w-full">
+                <div className="flex items-center justify-between mb-1 md:mb-4">
+                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Meals</p>
+                  <div className="text-2xl md:text-4xl opacity-30"><FaUtensils /></div>
+                </div>
                 {summaryLoading ? (
-                  <div className="h-10 w-20 bg-white/30 rounded-lg animate-pulse" />
+                  <div className="h-6 md:h-12 w-16 md:w-24 bg-white/30 rounded animate-pulse" />
                 ) : (
-                  <p className="text-4xl font-bold">{summary?.totalMeals || 0}</p>
+                  <p className="text-lg md:text-4xl font-bold leading-none">{summary?.totalMeals || 0}</p>
                 )}
               </div>
-              <div className="text-5xl opacity-20"><FaUtensils /></div>
             </div>
           </div>
         </div>
-        <div className="card bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium mb-1">Meal Rate</p>
+
+        {/* 5. Meal Rate - Spans 2 columns on mobile */}
+        <div className="card bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 col-span-2 md:col-span-1">
+          <div className="card-body p-3 md:p-6">
+            <div className="flex items-center justify-between md:flex-col md:items-start">
+              <div className="flex-1 md:w-full">
+                <div className="flex items-center justify-between mb-1 md:mb-4">
+                  <p className="text-white/90 text-xs md:text-sm font-semibold">Meal Rate</p>
+                  <div className="text-2xl md:text-4xl opacity-30"><FaChartLine /></div>
+                </div>
                 {summaryLoading ? (
-                  <div className="h-10 w-28 bg-white/30 rounded-lg animate-pulse" />
+                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
                 ) : (
-                  <p className="text-4xl font-bold">৳{summary?.mealRate?.toFixed(2) || '0.00'}</p>
+                  <p className="text-lg md:text-4xl font-bold leading-none">৳{summary?.mealRate?.toFixed(2) || '0.00'}</p>
                 )}
               </div>
-              <div className="text-5xl opacity-20"><FaChartLine /></div>
             </div>
           </div>
         </div>
@@ -585,77 +641,246 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
 
 
       {/* 4. Financial Analytics — last */}
-      {summary && (        <div className="space-y-6">
-          <h2 className="text-3xl font-bold text-primary text-center">Financial Analytics</h2>
+      {summary && (
+        <div className="space-y-6">
+          <div className="text-center mb-8">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
+              Financial Analytics
+            </h2>
+            <p className="text-base-content/60">Visual insights into your group's finances</p>
+          </div>
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
+            {/* 1. Deposit vs Cost Analysis - Enhanced */}
+            <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-2xl border border-blue-200/50 dark:border-blue-800/50 hover:shadow-blue-500/20 transition-all duration-300">
               <div className="card-body">
-                <h3 className="card-title text-primary mb-4">Deposit vs Cost Analysis</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={getMemberChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                    <XAxis dataKey="name" stroke={chartAxisColor} />
-                    <YAxis stroke={chartAxisColor} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar dataKey="deposit" fill="#3b82f6" name="Deposit" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="cost" fill="#ef4444" name="Cost" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+                    <FaMoneyBillWave className="text-2xl text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-blue-700 dark:text-blue-400">Deposit vs Cost Analysis</h3>
+                    <p className="text-sm text-base-content/60">Compare member contributions</p>
+                  </div>
+                </div>
+                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={getMemberChartData()}>
+                      <defs>
+                        <linearGradient id="depositGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.7} />
+                        </linearGradient>
+                        <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#dc2626" stopOpacity={0.7} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={chartAxisColor} 
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <YAxis 
+                        stroke={chartAxisColor}
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
+                        iconType="circle"
+                      />
+                      <Bar 
+                        dataKey="deposit" 
+                        fill="url(#depositGradient)" 
+                        name="Deposit" 
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={60}
+                      />
+                      <Bar 
+                        dataKey="cost" 
+                        fill="url(#costGradient)" 
+                        name="Cost" 
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={60}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            <div className="card bg-base-100 shadow-xl border-t-4 border-t-green-500">
+            {/* 2. Member Balance Overview - Enhanced */}
+            <div className="card bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 shadow-2xl border border-emerald-200/50 dark:border-emerald-800/50 hover:shadow-emerald-500/20 transition-all duration-300">
               <div className="card-body">
-                <h3 className="card-title text-green-600 mb-4">Member Balance Overview</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={getMemberChartData()}>
-                    <defs>
-                      <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                    <XAxis dataKey="name" stroke={chartAxisColor} />
-                    <YAxis stroke={chartAxisColor} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="balance" stroke="#10b981" fillOpacity={1} fill="url(#colorBalance)" name="Balance" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-3 rounded-xl shadow-lg">
+                    <FaChartLine className="text-2xl text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-400">Member Balance Overview</h3>
+                    <p className="text-sm text-base-content/60">Track financial standing</p>
+                  </div>
+                </div>
+                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={getMemberChartData()}>
+                      <defs>
+                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={chartAxisColor}
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <YAxis 
+                        stroke={chartAxisColor}
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 2 }} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="balance" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorBalance)" 
+                        name="Balance"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            <div className="card bg-base-100 shadow-xl border-t-4 border-t-purple-500">
+            {/* 3. Meal Distribution - Enhanced Pie Chart */}
+            <div className="card bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 shadow-2xl border border-purple-200/50 dark:border-purple-800/50 hover:shadow-purple-500/20 transition-all duration-300">
               <div className="card-body">
-                <h3 className="card-title text-purple-600 mb-4">Meal Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={getMealDistributionData()} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                      {getMealDistributionData().map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-xl shadow-lg">
+                    <FaUtensils className="text-2xl text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-purple-700 dark:text-purple-400">Meal Distribution</h3>
+                    <p className="text-sm text-base-content/60">Member meal consumption</p>
+                  </div>
+                </div>
+                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <defs>
+                        {COLORS.map((color, index) => (
+                          <linearGradient key={index} id={`pieGradient${index}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={1} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0.7} />
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      <Pie 
+                        data={getMealDistributionData()} 
+                        cx="50%" 
+                        cy="50%" 
+                        labelLine={{
+                          stroke: chartAxisColor,
+                          strokeWidth: 1
+                        }}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={90}
+                        innerRadius={40}
+                        fill="#8884d8" 
+                        dataKey="value"
+                        paddingAngle={2}
+                      >
+                        {getMealDistributionData().map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={`url(#pieGradient${index % COLORS.length})`}
+                            stroke="white"
+                            strokeWidth={2}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={<CustomTooltip />}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: '2px solid #a855f7',
+                          borderRadius: '12px',
+                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            <div className="card bg-base-100 shadow-xl border-t-4 border-t-orange-500">
+            {/* 4. Own vs Guest Meals - Enhanced */}
+            <div className="card bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 shadow-2xl border border-orange-200/50 dark:border-orange-800/50 hover:shadow-orange-500/20 transition-all duration-300">
               <div className="card-body">
-                <h3 className="card-title text-orange-600 mb-4">Own vs Guest Meals</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={getMemberChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                    <XAxis dataKey="name" stroke={chartAxisColor} />
-                    <YAxis stroke={chartAxisColor} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="ownMeals" stroke="#3b82f6" strokeWidth={3} name="Own Meals" dot={{ r: 5 }} />
-                    <Line type="monotone" dataKey="guestMeals" stroke="#f59e0b" strokeWidth={3} name="Guest Meals" dot={{ r: 5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-lg">
+                    <FaUsers className="text-2xl text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-orange-700 dark:text-orange-400">Own vs Guest Meals</h3>
+                    <p className="text-sm text-base-content/60">Meal type comparison</p>
+                  </div>
+                </div>
+                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={getMemberChartData()}>
+                      <defs>
+                        <linearGradient id="ownMealsGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={1} />
+                        </linearGradient>
+                        <linearGradient id="guestMealsGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#ef4444" stopOpacity={1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={chartAxisColor}
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <YAxis 
+                        stroke={chartAxisColor}
+                        style={{ fontSize: '12px', fontWeight: '600' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
+                        iconType="circle"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="ownMeals" 
+                        stroke="url(#ownMealsGradient)" 
+                        strokeWidth={4} 
+                        name="Own Meals" 
+                        dot={{ r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 8, fill: '#3b82f6', strokeWidth: 3, stroke: '#fff' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="guestMeals" 
+                        stroke="url(#guestMealsGradient)" 
+                        strokeWidth={4} 
+                        name="Guest Meals" 
+                        dot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 8, fill: '#f59e0b', strokeWidth: 3, stroke: '#fff' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>

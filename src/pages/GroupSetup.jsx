@@ -14,7 +14,7 @@ const GroupSetup = () => {
   const [groupName, setGroupName] = useState('');
   const [groupCode, setGroupCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const { getAuthHeaders, fetchUserData, currentUser, userData } = useAuth();
+  const { getAuthHeaders, fetchUserData, currentUser, userData, refreshUserToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -93,7 +93,8 @@ const GroupSetup = () => {
       const headers = await getAuthHeaders();
       const response = await axios.post(`${API_URL}/group/create`, { name: groupName }, { headers });
       
-      if (currentUser) await fetchUserData(currentUser);
+      // Refresh token to get updated custom claims
+      await refreshUserToken();
       
       burgerToast.success('Group created successfully!');
       navigate('/dashboard');
