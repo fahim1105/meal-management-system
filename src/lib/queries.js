@@ -4,14 +4,17 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 // ─── Query Keys ───────────────────────────────────────────
 export const queryKeys = {
-  group:    () => ['group'],
-  meal:     (month) => ['meal', month],
-  finance:  (month) => ['finance', month],
-  summary:  (month) => ['summary', month],
-  schedule: (month) => ['schedule', month],
-  history:  () => ['history'],
+  group:      () => ['group'],
+  meal:       (month) => ['meal', month],
+  mealConfig: (month) => ['mealConfig', month],
+  finance:    (month) => ['finance', month],
+  summary:    (month) => ['summary', month],
+  schedule:   (month) => ['schedule', month],
+  fines:      (month) => ['fines', month],
+  fineSummary:(month) => ['fineSummary', month],
+  history:    () => ['history'],
   joinRequests: (status) => ['joinRequests', status],
-  myRequestStatus: (groupCode) => ['myRequestStatus', groupCode],
+  myRequestStatus: () => ['myRequestStatus'],
 };
 
 // ─── Fetchers ─────────────────────────────────────────────
@@ -43,6 +46,24 @@ export const fetchSchedule = async (getAuthHeaders, month) => {
   const headers = await getAuthHeaders();
   const res = await axios.get(`${API_URL}/bazar-schedule/${month}`, { headers });
   return res.data.schedule;
+};
+
+export const fetchMealConfig = async (getAuthHeaders, month) => {
+  const headers = await getAuthHeaders();
+  const res = await axios.get(`${API_URL}/meal-config/${month}`, { headers });
+  return res.data.config;
+};
+
+export const fetchFines = async (getAuthHeaders, month) => {
+  const headers = await getAuthHeaders();
+  const res = await axios.get(`${API_URL}/fine/${month}`, { headers });
+  return res.data;
+};
+
+export const fetchFineSummary = async (getAuthHeaders, month) => {
+  const headers = await getAuthHeaders();
+  const res = await axios.get(`${API_URL}/fine/${month}/summary`, { headers });
+  return res.data.summary;
 };
 
 export const fetchHistory = async (getAuthHeaders) => {

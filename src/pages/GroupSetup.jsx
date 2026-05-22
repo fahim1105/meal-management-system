@@ -20,11 +20,17 @@ const GroupSetup = () => {
 
   const API_URL = import.meta.env.VITE_API_URL;
 
-  // Check for pending join request
+  // Check for pending join request — poll every 5s while pending
   const { data: requestStatus, isLoading: requestLoading } = useQuery({
     queryKey: queryKeys.myRequestStatus(),
     queryFn: () => fetchMyRequestStatus(getAuthHeaders),
-    enabled: !userData?.groupId, // Only check if user has no group
+    enabled: !userData?.groupId,
+    refetchInterval: (query) => {
+      // Poll every 5s only when there's a pending request
+      const data = query.state.data;
+      if (data?.hasRequest && data?.request?.status === 'pending') return 5000;
+      return false;
+    },
   });
 
   const hasPendingRequest = requestStatus?.hasRequest && requestStatus?.request?.status === 'pending';
@@ -32,7 +38,18 @@ const GroupSetup = () => {
   // Already in a group — redirect to dashboard
   useEffect(() => {
     if (userData?.groupId) navigate('/dashboard');
-  }, [userData]);
+  }, [userData, navigate]);
+
+  // Auto-navigate when request gets approved
+  useEffect(() => {
+    if (requestStatus?.request?.status === 'approved') {
+      burgerToast.success('Your join request was approved! Welcome to the group 🎉');
+      refreshUserToken().then(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.group() });
+        navigate('/dashboard');
+      });
+    }
+  }, [requestStatus]);
 
   // Cancel request mutation
   const cancelMutation = useMutation({

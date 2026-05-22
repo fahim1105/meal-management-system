@@ -5,6 +5,7 @@ import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { FaPoll, FaCheckCircle, FaClock, FaTrash } from 'react-icons/fa';
 import Swal from 'sweetalert2';
+import { formatMessageTime } from './formatMessageTime';
 
 const PollItem = ({ message, groupId, isManager }) => {
   const [voting, setVoting] = useState(false);
@@ -139,11 +140,7 @@ const PollItem = ({ message, groupId, isManager }) => {
     return senderName;
   };
 
-  const getTimeAgo = () => {
-    if (!message.timestamp) return 'Just now';
-    const date = message.timestamp.toDate ? message.timestamp.toDate() : new Date(message.timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
-  };
+  const getTimeAgo = () => formatMessageTime(message.timestamp);
 
   const isExpired = () => {
     if (!pollData.expiresAt) return false;

@@ -83,11 +83,29 @@ See [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) for complete deployment guide
 
 ### After Deployment
 1. Copy your Vercel deployment URL
-2. Update frontend `.env`:
+2. Set environment variables in Vercel (see `.env.vercel.example`), including:
+   - `EMAIL_HOST`, `EMAIL_USER`, `EMAIL_PASS` — SMTP for emails
+   - `CRON_SECRET` — random string; Vercel Cron uses this for bazar reminders
+3. Update frontend `.env`:
    ```env
    VITE_API_URL=https://your-backend.vercel.app/api
    ```
-3. Test API: `curl https://your-backend.vercel.app/`
+4. Redeploy after setting env vars so **Vercel Cron** runs:
+   - **10:00 AM Bangladesh** → `GET /api/email/cron/morning-reminder`
+   - **6:00 PM Bangladesh** → `GET /api/email/cron/evening-reminder`
+5. Test API: `curl https://your-backend.vercel.app/`
+
+### Bazar duty reminder emails
+Members whose bazar schedule includes **today** (Bangladesh date) receive two emails:
+morning (10:00 AM) and evening (6:00 PM). Only users on duty that day are emailed.
+
+Manual test (replace URL and secret):
+```bash
+curl -X POST https://your-backend.vercel.app/api/email/trigger-duty-reminders \
+  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"timeSlot":"morning"}'
+```
 
 ---
 

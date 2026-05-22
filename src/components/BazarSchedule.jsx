@@ -20,6 +20,7 @@ const BazarSchedule = ({ group, isManager }) => {
     queryKey: queryKeys.schedule(currentMonth),
     queryFn: () => fetchSchedule(getAuthHeaders, currentMonth),
     enabled: !!group,
+    refetchInterval: 1000 * 10,
   });
 
   const navigateMonth = (dir) => {

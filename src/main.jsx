@@ -10,10 +10,10 @@ fetch(`${import.meta.env.VITE_API_URL}/health`).catch(() => {});
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2,      // 2 min — data stays fresh
+      staleTime: 1000 * 30,           // 30s — data stays fresh
       gcTime: 1000 * 60 * 10,         // 10 min — keep in cache
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,     // refetch when user switches back to tab
     },
   },
 });

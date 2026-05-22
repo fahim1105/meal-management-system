@@ -9,7 +9,7 @@ import { FaShoppingCart, FaUtensils, FaChartLine, FaMoneyBillWave, FaUsers, FaCl
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { queryKeys, fetchFinance, fetchSummary } from '../lib/queries';
 
-const FinanceSummary = ({ group, isManager, onUpdate }) => {
+const FinanceSummary = ({ group, isManager }) => {
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
   const { getAuthHeaders, userData } = useAuth();
   const queryClient = useQueryClient();
@@ -19,12 +19,14 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
     queryKey: queryKeys.finance(currentMonth),
     queryFn: () => fetchFinance(getAuthHeaders, currentMonth),
     enabled: !!group,
+    refetchInterval: 1000 * 10, // every 10s
   });
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: queryKeys.summary(currentMonth),
     queryFn: () => fetchSummary(getAuthHeaders, currentMonth),
     enabled: !!group,
+    refetchInterval: 1000 * 10,
   });
 
   const loading = financeLoading && !finance;
@@ -34,12 +36,6 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
     queryClient.invalidateQueries({ queryKey: queryKeys.summary(currentMonth) });
   };
 
-  const [depositUserId, setDepositUserId] = useState('');
-  const [depositAmount, setDepositAmount] = useState('');
-  const [bazarAmount, setBazarAmount] = useState('');
-  const [bazarDescription, setBazarDescription] = useState('');
-  const [depositLoading, setDepositLoading] = useState(false);
-  const [bazarLoading, setBazarLoading] = useState(false);
   const [deletingDepositId, setDeletingDepositId] = useState(null);
   const [deletingBazarId, setDeletingBazarId] = useState(null);
   const [historyTab, setHistoryTab] = useState('deposit');
@@ -47,40 +43,6 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const chartAxisColor = isDark ? '#9ca3af' : '#6b7280';
   const chartGridColor = isDark ? '#374151' : '#e5e7eb';
-
-  const handleAddDeposit = async (e) => {
-    e.preventDefault();
-    setDepositLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      await axios.post(`${API_URL}/finance/deposit`, { month: currentMonth, userId: depositUserId, amount: parseFloat(depositAmount) }, { headers });
-      burgerToast.success('Deposit added successfully');
-      setDepositUserId('');
-      setDepositAmount('');
-      invalidateFinance();
-    } catch (error) {
-      burgerToast.error('Failed to add deposit');
-    } finally {
-      setDepositLoading(false);
-    }
-  };
-
-  const handleAddBazar = async (e) => {
-    e.preventDefault();
-    setBazarLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      await axios.post(`${API_URL}/finance/bazar`, { month: currentMonth, amount: parseFloat(bazarAmount), description: bazarDescription }, { headers });
-      burgerToast.success('Bazar cost added successfully');
-      setBazarAmount('');
-      setBazarDescription('');
-      invalidateFinance();
-    } catch (error) {
-      burgerToast.error('Failed to add bazar cost');
-    } finally {
-      setBazarLoading(false);
-    }
-  };
 
   const handleDeleteBazar = async (bazarId) => {
     const result = await Swal.fire({
@@ -102,7 +64,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
       await axios.delete(`${API_URL}/finance/bazar/${currentMonth}/${bazarId}`, { headers });
       burgerToast.success('Bazar entry deleted');
       invalidateFinance();
-    } catch (error) {
+    } catch {
       burgerToast.error('Failed to delete bazar entry');
     } finally {
       setDeletingBazarId(null);
@@ -129,7 +91,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
       await axios.delete(`${API_URL}/finance/deposit/${currentMonth}/${depositId}`, { headers });
       burgerToast.success('Deposit entry deleted');
       invalidateFinance();
-    } catch (error) {
+    } catch {
       burgerToast.error('Failed to delete deposit');
     } finally {
       setDeletingDepositId(null);
@@ -152,7 +114,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
 
   const getMemberChartData = () => {
     if (!summary?.memberStats) return [];
-    return Object.entries(summary.memberStats).map(([userId, stats]) => ({
+    return Object.entries(summary.memberStats).map(([, stats]) => ({
       name: stats.name,
       deposit: stats.deposit,
       cost: stats.cost,
@@ -165,7 +127,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
 
   const getMealDistributionData = () => {
     if (!summary?.memberStats) return [];
-    return Object.entries(summary.memberStats).map(([userId, stats]) => ({
+    return Object.entries(summary.memberStats).map(([, stats]) => ({
       name: stats.name,
       value: stats.totalMeals
     }));
@@ -572,7 +534,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
                       <tbody>
                         {[...finance.bazarCosts].sort((a, b) => new Date(b.date) - new Date(a.date)).map((bazar, index) => (
                           <tr key={index} className="hover:bg-primary/5 transition-colors">
-                            <td><span className="badge badge-primary badge-outline">{format(new Date(bazar.date), 'dd MMM yyyy')}</span></td>
+                            <td><span className="badge badge-primary badge-outline whitespace-nowrap">{format(new Date(bazar.date), 'dd MMM yyyy')}</span></td>
                             <td className="text-right font-bold text-primary pr-8">৳{bazar.amount.toFixed(2)}</td>
                             <td className="text-base-content/70 truncate">{bazar.description || '-'}</td>
                             {isManager && (
@@ -609,7 +571,7 @@ const FinanceSummary = ({ group, isManager, onUpdate }) => {
                     <div key={index} className="card bg-base-200 shadow-md">
                       <div className="card-body p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="badge badge-primary">{format(new Date(bazar.date), 'dd MMM yyyy')}</span>
+                          <span className="badge badge-primary whitespace-nowrap">{format(new Date(bazar.date), 'dd MMM yyyy')}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-xl font-bold text-primary">৳{bazar.amount.toFixed(2)}</span>
                             {isManager && (

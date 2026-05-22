@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { format } from 'date-fns';
 import { FaReply, FaSmile } from 'react-icons/fa';
 import ReactionTooltip from './ReactionTooltip';
+import { formatMessageTime } from './formatMessageTime';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -374,14 +374,10 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
     return senderName;
   };
 
-  const getTimeAgo = () => {
-    if (!message.timestamp) return 'Just now';
-    const date = message.timestamp.toDate ? message.timestamp.toDate() : new Date(message.timestamp);
-    return format(date, 'h:mm a'); // Format: 2:30 PM
-  };
-
   const reactions = message.reactions || {};
   const hasReactions = Object.keys(reactions).some(emoji => reactions[emoji]?.length > 0);
+
+  const getTimeAgo = () => formatMessageTime(message.timestamp);
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}>

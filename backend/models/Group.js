@@ -43,6 +43,10 @@ const groupSchema = new mongoose.Schema({
     type: String,
     default: () => new Date().toISOString().slice(0, 7)
   },
+  fineEnabled: {
+    type: Boolean,
+    default: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now

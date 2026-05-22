@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,10 +8,11 @@ import FinanceSummary from '../components/FinanceSummary';
 import ManagerSettings from '../components/ManagerSettings';
 import GroupSettings from '../components/GroupSettings';
 import BazarSchedule from '../components/BazarSchedule';
+import Jorimana from '../components/Jorimana';
 import burgerToast from '../components/BurgerToast';
 import LottieLoader from '../components/LottieLoader';
 import { queryKeys, fetchGroup, fetchMeal, fetchFinance, fetchSummary, fetchSchedule } from '../lib/queries';
-import { FaUtensils, FaChartLine, FaCog, FaUsers, FaCrown, FaUserCog, FaCopy, FaCalendarCheck } from 'react-icons/fa';
+import { FaUtensils, FaChartLine, FaCog, FaUsers, FaCrown, FaUserCog, FaCopy, FaCalendarCheck, FaGavel } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { userData, getAuthHeaders } = useAuth();
@@ -26,41 +27,54 @@ const Dashboard = () => {
     queryKey: queryKeys.group(),
     queryFn: () => fetchGroup(getAuthHeaders),
     enabled,
+    refetchInterval: 1000 * 15, // every 15s
   });
 
   const { data: mealSheet } = useQuery({
     queryKey: queryKeys.meal(currentMonth),
     queryFn: () => fetchMeal(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 15,
   });
 
   const { data: finance } = useQuery({
     queryKey: queryKeys.finance(currentMonth),
     queryFn: () => fetchFinance(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 15,
   });
 
   const { data: summary } = useQuery({
     queryKey: queryKeys.summary(currentMonth),
     queryFn: () => fetchSummary(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 15,
   });
 
   const { data: schedule } = useQuery({
     queryKey: queryKeys.schedule(currentMonth),
     queryFn: () => fetchSchedule(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 15,
   });
 
   const handleUpdate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.group() });
     queryClient.invalidateQueries({ queryKey: queryKeys.meal(currentMonth) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.mealConfig(currentMonth) });
     queryClient.invalidateQueries({ queryKey: queryKeys.finance(currentMonth) });
     queryClient.invalidateQueries({ queryKey: queryKeys.summary(currentMonth) });
     queryClient.invalidateQueries({ queryKey: queryKeys.schedule(currentMonth) });
   };
 
   const isManager = group?.managerId === userData?.uid;
+  const fineEnabled = group?.fineEnabled !== false;
+
+  useEffect(() => {
+    if (!fineEnabled && activeTab === 'jorimana') {
+      setActiveTab('meals');
+    }
+  }, [fineEnabled, activeTab]);
 
   if (groupLoading) {
     return (
@@ -106,26 +120,47 @@ const Dashboard = () => {
       <div className="bg-base-100 rounded-2xl shadow-xl p-2 mb-6">
         <div className="tabs tabs-boxed bg-base-200/50 gap-1">
           {[
-            { id: 'meals',   label: 'Meals',   icon: FaUtensils },
-            { id: 'finance', label: 'Finance', icon: FaChartLine },
-            { id: 'bazar',   label: 'Bazar',   icon: FaCalendarCheck },
-            { id: 'account', label: 'Account', icon: FaUserCog },
-            ...(isManager ? [{ id: 'settings', label: 'Manager', icon: FaCog }] : []),
-          ].map(({ id, label, icon: Icon }) => (
+            { id: 'meals',    label: 'Meals',   icon: FaUtensils,     activeBorder: 'border-blue-500',   inactiveBorder: 'border-blue-300/40'   },
+            { id: 'finance',  label: 'Finance', icon: FaChartLine,    activeBorder: 'border-indigo-500', inactiveBorder: 'border-indigo-300/40' },
+            { id: 'bazar',    label: 'Bazar',   icon: FaCalendarCheck,activeBorder: 'border-teal-500',   inactiveBorder: 'border-teal-300/40'   },
+            { id: 'jorimana', label: 'Fines',   icon: FaGavel,        activeBorder: 'border-red-500',    inactiveBorder: 'border-red-300/40',    hidden: !fineEnabled },
+            { id: 'account',  label: 'Account', icon: FaUserCog,      activeBorder: 'border-purple-500', inactiveBorder: 'border-purple-300/40' },
+            ...(isManager ? [{ id: 'settings', label: 'Manager', icon: FaCog, activeBorder: 'border-amber-500', inactiveBorder: 'border-amber-300/40' }] : []),
+          ].filter(tab => !tab.hidden).map(({ id, label, icon: Icon, activeBorder, inactiveBorder }) => (
             <a
               key={id}
-              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl ${
+              className={`tab flex-1 flex-col xs:flex-row gap-0.5 xs:gap-1 font-semibold transition-all duration-300 text-[10px] xs:text-xs sm:text-sm py-2 min-h-0 h-auto rounded-xl border-2 ${
                 activeTab === id
-                  ? id === 'bazar'
-                    ? 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-lg shadow-teal-500/30 scale-[1.03]'
-                    : 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
-                  : id === 'bazar'
-                    ? 'text-base-content/50 hover:text-teal-500 hover:bg-teal-500/10'
-                    : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
+                  ? `${activeBorder} ${
+                      id === 'bazar'
+                        ? 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-lg shadow-teal-500/30 scale-[1.03]'
+                        : id === 'jorimana'
+                        ? 'bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-lg shadow-red-500/30 scale-[1.03]'
+                        : id === 'account'
+                        ? 'bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-lg shadow-purple-500/30 scale-[1.03]'
+                        : id === 'settings'
+                        ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 scale-[1.03]'
+                        : id === 'finance'
+                        ? 'bg-gradient-to-br from-indigo-500 to-blue-700 text-white shadow-lg shadow-indigo-500/30 scale-[1.03]'
+                        : 'bg-gradient-to-br from-primary to-blue-600 text-white shadow-lg shadow-primary/30 scale-[1.03]'
+                    }`
+                  : `${inactiveBorder} ${
+                      id === 'bazar'
+                        ? 'text-base-content/50 hover:text-teal-500 hover:bg-teal-500/10'
+                        : id === 'jorimana'
+                        ? 'text-base-content/50 hover:text-red-500 hover:bg-red-500/10'
+                        : id === 'account'
+                        ? 'text-base-content/50 hover:text-purple-500 hover:bg-purple-500/10'
+                        : id === 'settings'
+                        ? 'text-base-content/50 hover:text-amber-500 hover:bg-amber-500/10'
+                        : id === 'finance'
+                        ? 'text-base-content/50 hover:text-indigo-500 hover:bg-indigo-500/10'
+                        : 'text-base-content/50 hover:text-primary hover:bg-primary/10'
+                    }`
               }`}
               onClick={() => setActiveTab(id)}
             >
-              <Icon className="text-base flex-shrink-0" />
+              <Icon className="text-base shrink-0" />
               <span>{label}</span>
             </a>
           ))}
@@ -134,9 +169,10 @@ const Dashboard = () => {
 
       {/* Tab Content */}
       <div className="animate-fadeIn">
-        {activeTab === 'meals'    && <MealSheet group={group} isManager={isManager} initialMealSheet={mealSheet} onUpdate={handleUpdate} />}
-        {activeTab === 'finance'  && <FinanceSummary group={group} isManager={isManager} onUpdate={handleUpdate} />}
+        {activeTab === 'meals'    && <MealSheet group={group} isManager={isManager} onUpdate={handleUpdate} />}
+        {activeTab === 'finance'  && <FinanceSummary group={group} isManager={isManager} />}
         {activeTab === 'bazar'    && <BazarSchedule group={group} isManager={isManager} />}
+        {activeTab === 'jorimana' && <Jorimana group={group} isManager={isManager} />}
         {activeTab === 'account'  && <GroupSettings group={group} isManager={isManager} onUpdate={handleUpdate} />}
         {activeTab === 'settings' && isManager && <ManagerSettings group={group} onUpdate={handleUpdate} />}
       </div>

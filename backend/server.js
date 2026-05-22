@@ -8,6 +8,10 @@ import mealRoutes from './routes/meal.js';
 import financeRoutes from './routes/finance.js';
 import reportRoutes from './routes/report.js';
 import bazarScheduleRoutes from './routes/bazarSchedule.js';
+import emailRoutes from './routes/email.js';
+import fineRoutes from './routes/fine.js';
+import mealConfigRoutes from './routes/mealConfig.js';
+import { initializeCronJobs, stopCronJobs } from './services/cronScheduler.js';
 
 dotenv.config();
 
@@ -28,7 +32,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // 24 hours
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
@@ -39,7 +43,6 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.header('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
-  
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -56,31 +59,26 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Database connection failed:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Database connection failed. Please try again later.',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
 
-// Global error handler
-app.use((error, req, res, next) => {
-  console.error('Global error handler:', error);
-  res.status(error.status || 500).json({
-    error: error.message || 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-  });
-});
-
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRoutes);
 app.use('/api/meal', mealRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/report', reportRoutes);
 app.use('/api/bazar-schedule', bazarScheduleRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/fine', fineRoutes);
+app.use('/api/meal-config', mealConfigRoutes);
 
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Mess Manager API',
     status: 'running',
     version: '1.0.0',
@@ -91,13 +89,13 @@ app.get('/', (req, res) => {
 app.get('/api/health', async (req, res) => {
   try {
     await connectDB();
-    res.json({ 
+    res.json({
       status: 'healthy',
       database: 'connected',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'unhealthy',
       database: 'disconnected',
       error: error.message,
@@ -106,12 +104,29 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Global error handler — must be AFTER all routes
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
+  res.status(error.status || 500).json({
+    error: error.message || 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
+});
+
 // Export for Vercel serverless
 export default app;
 
-// Only listen if not in serverless environment
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
+// Local / non-Vercel: start HTTP server + node-cron reminders
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    initializeCronJobs();
   });
+
+  const shutdown = () => {
+    stopCronJobs();
+    server.close(() => process.exit(0));
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }

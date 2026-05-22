@@ -1,62 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import { format } from 'date-fns';
 import { FaUtensils, FaCalendarAlt, FaInfoCircle, FaCoffee, FaHamburger, FaMoon, FaUserSlash, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { queryKeys, fetchMeal, fetchMealConfig } from '../lib/queries';
 
-const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
-  const [mealSheet, setMealSheet] = useState(initialMealSheet || null);
+const MEAL_TYPES = [
+  { key: 'breakfast', short: 'B', headerClass: 'bg-blue-100 text-blue-700', cellClass: 'bg-blue-50/50', footerClass: 'bg-blue-600 text-white', checkbox: 'checkbox-primary' },
+  { key: 'lunch', short: 'L', headerClass: 'bg-purple-100 text-purple-700', cellClass: 'bg-purple-50/50', footerClass: 'bg-purple-600 text-white', checkbox: 'checkbox-secondary' },
+  { key: 'dinner', short: 'D', headerClass: 'bg-green-100 text-green-700', cellClass: 'bg-green-50/50', footerClass: 'bg-green-600 text-white', checkbox: 'checkbox-accent' },
+];
+
+const MealSheet = ({ group, isManager, onUpdate }) => {
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [loading, setLoading] = useState(!initialMealSheet);
   const [pendingChanges, setPendingChanges] = useState({});
   const [saving, setSaving] = useState(false);
   const { getAuthHeaders } = useAuth();
-
+  const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL;
 
-  const initialMonthRef = useState(format(new Date(), 'yyyy-MM'))[0];
+  const { data: mealSheetRaw, isLoading: loading } = useQuery({
+    queryKey: queryKeys.meal(currentMonth),
+    queryFn: () => fetchMeal(getAuthHeaders, currentMonth),
+    enabled: !!group,
+    refetchInterval: 1000 * 10,
+  });
 
-  useEffect(() => {
-    // Skip fetch on initial mount if prefetched data was provided
-    if (currentMonth === initialMonthRef && initialMealSheet) {
-      setPendingChanges({});
-      return;
+  const { data: mealConfig, isLoading: configLoading } = useQuery({
+    queryKey: queryKeys.mealConfig(currentMonth),
+    queryFn: () => fetchMealConfig(getAuthHeaders, currentMonth),
+    enabled: !!group,
+    refetchInterval: 1000 * 10,
+  });
+
+  const getMemberMealTypes = (userId) => {
+    if (!mealConfig?.configs) return [];
+    const cfg = mealConfig.configs.find(c => c.userId === userId);
+    if (!cfg) return [];
+    return MEAL_TYPES.filter(t => cfg[t.key]);
+  };
+
+  const usedMealTypes = React.useMemo(() => {
+    if (!mealConfig?.configs) return [];
+    const keys = new Set();
+    mealConfig.configs.forEach(c => {
+      MEAL_TYPES.forEach(t => { if (c[t.key]) keys.add(t.key); });
+    });
+    return MEAL_TYPES.filter(t => keys.has(t.key));
+  }, [mealConfig]);
+
+  // Normalize days: Map → plain object, ensure arrays
+  const mealSheet = React.useMemo(() => {
+    if (!mealSheetRaw) return null;
+    const normalized = { ...mealSheetRaw };
+    if (normalized.days instanceof Map) {
+      normalized.days = Object.fromEntries(normalized.days);
     }
-    fetchMealSheet();
+    if (normalized.days) {
+      Object.keys(normalized.days).forEach(day => {
+        if (!Array.isArray(normalized.days[day])) normalized.days[day] = [];
+      });
+    }
+    return normalized;
+  }, [mealSheetRaw]);
+
+  // Clear pending changes when month changes
+  useEffect(() => {
     setPendingChanges({});
   }, [currentMonth]);
-
-  const fetchMealSheet = async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/meal/${currentMonth}`, { headers });
-      
-      const mealSheetData = response.data.mealSheet;
-      
-      // Ensure days is a plain object with arrays
-      if (mealSheetData && mealSheetData.days) {
-        // Convert Map to object if needed
-        if (mealSheetData.days instanceof Map) {
-          mealSheetData.days = Object.fromEntries(mealSheetData.days);
-        }
-        
-        // Ensure all values are arrays
-        Object.keys(mealSheetData.days).forEach(day => {
-          if (!Array.isArray(mealSheetData.days[day])) {
-            mealSheetData.days[day] = [];
-          }
-        });
-      }
-      
-      setMealSheet(mealSheetData);
-    } catch (error) {
-      console.error('Fetch meal sheet error:', error);
-      burgerToast.error('Failed to fetch meal sheet');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateMealCount = (day, userId, mealType, count) => {
     if (!isManager) {
@@ -64,7 +77,6 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
       return;
     }
 
-    // Check if this member can be edited for this date
     const member = group?.members.find(m => m.userId === userId);
     if (!canEditMealForDate(member, day)) {
       burgerToast.error('Cannot edit meals for this member on this date');
@@ -72,56 +84,24 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
     }
 
     const changeKey = `${day}-${userId}-${mealType}-count`;
-    
-    // Update local state immediately
-    setMealSheet(prevSheet => {
-      if (!prevSheet) return prevSheet;
-      
-      const updatedSheet = { ...prevSheet };
-      const dayKey = day.toString();
-      
-      if (!updatedSheet.days) {
-        updatedSheet.days = {};
-      }
-      
-      const dayMeals = Array.isArray(updatedSheet.days[dayKey]) 
-        ? [...updatedSheet.days[dayKey]] 
-        : [];
-      
-      const userMealIndex = dayMeals.findIndex(m => m.userId === userId);
-      
-      if (userMealIndex >= 0) {
-        dayMeals[userMealIndex] = {
-          ...dayMeals[userMealIndex],
-          [`${mealType}Count`]: Math.max(1, parseInt(count) || 1)
-        };
-      }
-      
-      updatedSheet.days[dayKey] = dayMeals;
-      return updatedSheet;
-    });
-
-    // Track pending change
     setPendingChanges(prev => ({
       ...prev,
       [changeKey]: {
-        day,
-        userId,
-        mealType,
+        day, userId, mealType,
         count: Math.max(1, parseInt(count) || 1),
-        type: 'count'
-      }
+        type: 'count',
+      },
     }));
   };
 
   const getMealCount = (day, userId, mealType) => {
+    // Check pending changes first (optimistic)
+    const countKey = `${day}-${userId}-${mealType}-count`;
+    if (pendingChanges[countKey]) return pendingChanges[countKey].count;
+
     if (!mealSheet?.days) return 1;
-    
-    const dayKey = day.toString();
-    const dayMeals = mealSheet.days[dayKey];
-    
+    const dayMeals = mealSheet.days[day.toString()];
     if (!dayMeals || !Array.isArray(dayMeals)) return 1;
-    
     const userMeal = dayMeals.find(m => m.userId === userId);
     return userMeal?.[`${mealType}Count`] || 1;
   };
@@ -162,7 +142,6 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
       return;
     }
 
-    // Check if this member can be edited for this date
     const member = group?.members.find(m => m.userId === userId);
     if (!canEditMealForDate(member, day)) {
       burgerToast.error('Cannot edit meals for this member on this date');
@@ -173,38 +152,6 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
     const newStatus = !currentStatus;
     const changeKey = `${day}-${userId}-${mealType}`;
 
-    // Update local state immediately
-    setMealSheet(prevSheet => {
-      if (!prevSheet) return prevSheet;
-      const updatedSheet = { ...prevSheet };
-      const dayKey = day.toString();
-      if (!updatedSheet.days) updatedSheet.days = {};
-      const dayMeals = Array.isArray(updatedSheet.days[dayKey])
-        ? [...updatedSheet.days[dayKey]]
-        : [];
-      const userMealIndex = dayMeals.findIndex(m => m.userId === userId);
-      if (userMealIndex >= 0) {
-        dayMeals[userMealIndex] = {
-          ...dayMeals[userMealIndex],
-          [mealType]: newStatus,
-          // uncheck হলে count reset to 1, check হলে আগের count রাখো
-          [`${mealType}Count`]: newStatus ? (dayMeals[userMealIndex][`${mealType}Count`] || 1) : 1,
-        };
-      } else {
-        dayMeals.push({
-          userId,
-          breakfast: mealType === 'breakfast' ? newStatus : false, breakfastCount: 1,
-          lunch:     mealType === 'lunch'     ? newStatus : false, lunchCount: 1,
-          dinner:    mealType === 'dinner'    ? newStatus : false, dinnerCount: 1,
-        });
-      }
-      updatedSheet.days[dayKey] = dayMeals;
-      return updatedSheet;
-    });
-
-    // Store absolute final state — overwrites any previous toggle on same cell
-    // uncheck হলে সেই mealType এর count pending change ও delete করো
-    // নইলে backend এ set(false) এর পরে count apply হয়ে পুরনো count ফিরে আসবে
     setPendingChanges(prev => {
       const updated = {
         ...prev,
@@ -216,23 +163,19 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
   };
 
   const getMealStatus = (day, userId, mealType) => {
+    // Check pending changes first (optimistic)
+    const toggleKey = `${day}-${userId}-${mealType}`;
+    if (pendingChanges[toggleKey]) return pendingChanges[toggleKey].value;
+
     if (!mealSheet?.days) return false;
-    
-    const dayKey = day.toString();
-    const dayMeals = mealSheet.days[dayKey];
-    
+    const dayMeals = mealSheet.days[day.toString()];
     if (!dayMeals || !Array.isArray(dayMeals)) return false;
-    
     const userMeal = dayMeals.find(m => m.userId === userId);
     return userMeal?.[mealType] || false;
   };
 
   const hasPendingChanges = () => {
     return Object.keys(pendingChanges).length > 0;
-  };
-
-  const getCellChangeKey = (day, userId, mealType) => {
-    return `${day}-${userId}-${mealType}`;
   };
 
   const hasCellChanged = (day, userId, mealType) => {
@@ -251,41 +194,33 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
     const headers = await getAuthHeaders();
 
     try {
-      // Convert pendingChanges object to array format for batch API
       const changesArray = Object.values(pendingChanges);
 
-      // Single batch API call with all changes
       const response = await axios.post(
         `${API_URL}/meal/batch-update`,
-        { 
-          month: currentMonth, 
-          changes: changesArray
-        },
+        { month: currentMonth, changes: changesArray },
         { headers }
       );
 
       const { successCount, errorCount, errors } = response.data;
 
-      // Clear pending changes
       setPendingChanges({});
 
-      // Refresh from server to ensure consistency
-      await fetchMealSheet();
+      // Invalidate TanStack Query cache — triggers refetch for all users
+      queryClient.invalidateQueries({ queryKey: queryKeys.meal(currentMonth) });
 
       if (errorCount === 0) {
         burgerToast.success(`Successfully saved ${successCount} changes`);
-        onUpdate?.(); // invalidate summary + finance in Dashboard
+        onUpdate?.();
       } else {
         burgerToast.warning(`Saved ${successCount} changes, ${errorCount} failed`);
-        if (errors && errors.length > 0) {
-          console.error('Failed changes:', errors);
-        }
+        if (errors?.length > 0) console.error('Failed changes:', errors);
       }
     } catch (error) {
       console.error('Save changes error:', error);
       burgerToast.error('Failed to save changes');
-      // Refresh to revert to server state
-      await fetchMealSheet();
+      setPendingChanges({});
+      queryClient.invalidateQueries({ queryKey: queryKeys.meal(currentMonth) });
     } finally {
       setSaving(false);
     }
@@ -293,7 +228,6 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
 
   const discardChanges = () => {
     setPendingChanges({});
-    fetchMealSheet();
     burgerToast.info('Changes discarded');
   };
 
@@ -306,8 +240,71 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  if (loading) {
+  const renderMealCell = (day, member, mealType, meta, isLastCol) => {
+    const canEdit = isManager && canEditMealForDate(member, day);
+    const changed = hasCellChanged(day, member.userId, mealType.key);
+    return (
+      <td
+        key={`${day}-${member.userId}-${mealType.key}`}
+        className={`text-center p-1 ${member.status === 'inactive' ? 'bg-gray-100/50' : meta.cellClass} ${changed ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''} ${isLastCol ? 'border-r-4 border-primary/30' : ''}`}
+      >
+        <div className="flex items-center justify-center gap-1">
+          <input
+            type="checkbox"
+            className={`checkbox checkbox-sm ${meta.checkbox} hover:scale-110 transition-transform disabled:opacity-30`}
+            checked={getMealStatus(day, member.userId, mealType.key)}
+            onChange={() => toggleMeal(day, member.userId, mealType.key)}
+            disabled={!canEdit}
+          />
+          {getMealStatus(day, member.userId, mealType.key) && (
+            <input
+              type="number"
+              min="1"
+              max="10"
+              className="input input-xs w-10 h-6 text-center p-0 border-primary/30 disabled:opacity-30"
+              value={getMealCount(day, member.userId, mealType.key)}
+              onChange={(e) => updateMealCount(day, member.userId, mealType.key, e.target.value)}
+              disabled={!canEdit}
+              onClick={(e) => e.target.select()}
+            />
+          )}
+        </div>
+      </td>
+    );
+  };
+
+  if (loading || configLoading) {
     return <div className="flex justify-center"><span className="loading loading-spinner"></span></div>;
+  }
+
+  if (!mealConfig) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-3 rounded-full">
+              <FaUtensils className="text-3xl text-white" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-1">Meal Sheet</h2>
+              <p className="text-white/80 text-sm">{currentMonth}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card bg-base-100 shadow-xl border-2 border-warning/30">
+          <div className="card-body items-center text-center py-16">
+            <FaUtensils className="text-6xl text-warning/40 mb-4" />
+            <h3 className="text-xl font-bold text-base-content">Meal types not configured</h3>
+            <p className="text-base-content/60 mt-2 max-w-md">
+              The manager has not set up meal types for {currentMonth} yet.
+              {isManager
+                ? ' Go to Manager Settings → Meals tab to configure each member\'s meal types.'
+                : ' Please ask your manager to configure meal types for this month.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -414,40 +411,32 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
         </div>
       )}
 
-      {/* Premium Legend - Mobile & Desktop Optimized */}
+      {/* Legend — only configured meal types */}
+      {usedMealTypes.length > 0 && (
       <div className="card bg-base-100 shadow-xl border-2 border-primary/20">
         <div className="card-body p-4 sm:p-6">
-          {/* Mobile: 3 cols, Desktop: Flex Row */}
-          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 sm:gap-4 items-stretch sm:items-center">
-            {/* Breakfast Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 sm:bg-blue-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-blue-200/50">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaCoffee className="text-white text-lg sm:text-2xl" />
-              </div>
-              <span className="font-bold text-blue-700 text-xs sm:text-lg text-center">Breakfast</span>
-            </div>
-            
-            {/* Lunch Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 sm:bg-purple-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-purple-200/50">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaHamburger className="text-white text-lg sm:text-2xl" />
-              </div>
-              <span className="font-bold text-purple-700 text-xs sm:text-lg text-center">Lunch</span>
-            </div>
-            
-            {/* Dinner Card */}
-            <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 sm:bg-green-50 shadow-md sm:shadow-lg transition-all hover:scale-105 sm:hover:shadow-xl border-2 border-green-200/50">
-              <div className="bg-gradient-to-br from-green-500 to-green-600 p-2.5 sm:p-3 rounded-2xl sm:rounded-xl shadow-lg">
-                <FaMoon className="text-white text-lg sm:text-2xl" />
-              </div>
-              <span className="font-bold text-green-700 text-xs sm:text-lg text-center">Dinner</span>
-            </div>
-            
-            {/* Spacer - Hidden on mobile */}
+          <div className="flex flex-wrap gap-2 sm:gap-4 items-stretch sm:items-center">
+            {usedMealTypes.map((t, i) => {
+              const icons = { breakfast: FaCoffee, lunch: FaHamburger, dinner: FaMoon };
+              const colors = {
+                breakfast: { bg: 'from-blue-50 to-blue-100', border: 'border-blue-200/50', icon: 'from-blue-500 to-blue-600', text: 'text-blue-700' },
+                lunch: { bg: 'from-purple-50 to-purple-100', border: 'border-purple-200/50', icon: 'from-purple-500 to-purple-600', text: 'text-purple-700' },
+                dinner: { bg: 'from-green-50 to-green-100', border: 'border-green-200/50', icon: 'from-green-500 to-green-600', text: 'text-green-700' },
+              };
+              const c = colors[t.key];
+              const Icon = icons[t.key];
+              const label = t.key.charAt(0).toUpperCase() + t.key.slice(1);
+              return (
+                <div key={t.key} className={`flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br ${c.bg} shadow-md border-2 ${c.border}`}>
+                  <div className={`bg-gradient-to-br ${c.icon} p-2.5 sm:p-3 rounded-2xl shadow-lg`}>
+                    <Icon className="text-white text-lg sm:text-2xl" />
+                  </div>
+                  <span className={`font-bold ${c.text} text-xs sm:text-lg text-center`}>{label}</span>
+                </div>
+              );
+            })}
             <div className="hidden sm:block flex-grow"></div>
-            
-            {/* Info Card - Full width on mobile, auto on desktop */}
-            <div className="col-span-3 sm:col-span-1 flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-br from-blue-500 to-blue-600 px-4 sm:px-6 py-3 sm:py-3 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg border-2 border-blue-400 transition-all hover:shadow-xl">
+            <div className="col-span-full sm:col-span-1 flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-br from-blue-500 to-blue-600 px-4 sm:px-6 py-3 rounded-xl sm:rounded-2xl shadow-md border-2 border-blue-400">
               <FaInfoCircle className="text-white text-lg sm:text-xl flex-shrink-0" />
               <span className="text-xs sm:text-sm text-white text-center sm:text-left leading-tight">
                 <span className="font-bold block sm:inline">Number = Meal Count</span>
@@ -457,6 +446,7 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Premium Table with Fixed Day Column */}
       <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary overflow-hidden">
@@ -468,10 +458,13 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
                   <th className="day-column day-header">
                     Day
                   </th>
-                  {group?.members.map((member, index) => (
+                  {group?.members.map((member, index) => {
+                    const types = getMemberMealTypes(member.userId);
+                    if (!types.length) return null;
+                    return (
                     <th 
                       key={member.userId} 
-                      colSpan={3} 
+                      colSpan={types.length} 
                       className={`text-center font-bold text-base px-3 py-2 ${
                         member.status === 'inactive' 
                           ? 'bg-gradient-to-br from-gray-400 to-gray-500 text-white' 
@@ -485,19 +478,22 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
                         )}
                       </div>
                     </th>
-                  ))}
+                    );
+                  })}
                 </tr>
                 <tr>
                   <th className="day-column day-subheader"></th>
                   {group?.members.map((member, memberIndex) => {
+                    const types = getMemberMealTypes(member.userId);
+                    if (!types.length) return null;
                     const isInactive = member.status === 'inactive';
                     return (
                       <React.Fragment key={member.userId}>
-                        <th className={`text-center font-bold ${isInactive ? 'bg-gray-200 text-gray-500' : 'bg-blue-100 text-blue-700'}`}>B</th>
-                        <th className={`text-center font-bold ${isInactive ? 'bg-gray-200 text-gray-500' : 'bg-purple-100 text-purple-700'}`}>L</th>
-                        <th className={`text-center font-bold ${isInactive ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-green-700'} ${
-                          memberIndex < group.members.length - 1 ? 'border-r-4 border-primary/30' : ''
-                        }`}>D</th>
+                        {types.map((t, ti) => (
+                          <th key={t.key} className={`text-center font-bold ${isInactive ? 'bg-gray-200 text-gray-500' : t.headerClass} ${
+                            ti === types.length - 1 && memberIndex < group.members.length - 1 ? 'border-r-4 border-primary/30' : ''
+                          }`}>{t.short}</th>
+                        ))}
                       </React.Fragment>
                     );
                   })}
@@ -510,88 +506,14 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
                         {day}
                       </td>
                     {group?.members.map((member, memberIndex) => {
-                      const canEdit = isManager && canEditMealForDate(member, day);
-                      const isInactive = member.status === 'inactive';
-                      const bgClass = isInactive ? 'bg-gray-100/50' : '';
-                      
-                      // Check if cells have pending changes
-                      const breakfastChanged = hasCellChanged(day, member.userId, 'breakfast');
-                      const lunchChanged = hasCellChanged(day, member.userId, 'lunch');
-                      const dinnerChanged = hasCellChanged(day, member.userId, 'dinner');
-                      
+                      const types = getMemberMealTypes(member.userId);
+                      if (!types.length) return null;
                       return (
                         <React.Fragment key={`${member.userId}-${day}`}>
-                          <td className={`text-center p-1 ${bgClass || 'bg-blue-50/50'} ${breakfastChanged ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}`}>
-                            <div className="flex items-center justify-center gap-1">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm checkbox-primary hover:scale-110 transition-transform disabled:opacity-30"
-                                checked={getMealStatus(day, member.userId, 'breakfast')}
-                                onChange={() => toggleMeal(day, member.userId, 'breakfast')}
-                                disabled={!canEdit}
-                              />
-                              {getMealStatus(day, member.userId, 'breakfast') && (
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  className="input input-xs w-10 h-6 text-center p-0 border-primary/30 disabled:opacity-30"
-                                  value={getMealCount(day, member.userId, 'breakfast')}
-                                  onChange={(e) => updateMealCount(day, member.userId, 'breakfast', e.target.value)}
-                                  disabled={!canEdit}
-                                  onClick={(e) => e.target.select()}
-                                />
-                              )}
-                            </div>
-                          </td>
-                          <td className={`text-center p-1 ${bgClass || 'bg-purple-50/50'} ${lunchChanged ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''}`}>
-                            <div className="flex items-center justify-center gap-1">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm checkbox-secondary hover:scale-110 transition-transform disabled:opacity-30"
-                                checked={getMealStatus(day, member.userId, 'lunch')}
-                                onChange={() => toggleMeal(day, member.userId, 'lunch')}
-                                disabled={!canEdit}
-                              />
-                              {getMealStatus(day, member.userId, 'lunch') && (
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  className="input input-xs w-10 h-6 text-center p-0 border-primary/30 disabled:opacity-30"
-                                  value={getMealCount(day, member.userId, 'lunch')}
-                                  onChange={(e) => updateMealCount(day, member.userId, 'lunch', e.target.value)}
-                                  disabled={!canEdit}
-                                  onClick={(e) => e.target.select()}
-                                />
-                              )}
-                            </div>
-                          </td>
-                          <td className={`text-center p-1 ${bgClass || 'bg-green-50/50'} ${dinnerChanged ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''} ${
-                            memberIndex < group.members.length - 1 ? 'border-r-4 border-primary/30' : ''
-                          }`}>
-                            <div className="flex items-center justify-center gap-1">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm checkbox-accent hover:scale-110 transition-transform disabled:opacity-30"
-                                checked={getMealStatus(day, member.userId, 'dinner')}
-                                onChange={() => toggleMeal(day, member.userId, 'dinner')}
-                                disabled={!canEdit}
-                              />
-                              {getMealStatus(day, member.userId, 'dinner') && (
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  className="input input-xs w-10 h-6 text-center p-0 border-primary/30 disabled:opacity-30"
-                                  value={getMealCount(day, member.userId, 'dinner')}
-                                  onChange={(e) => updateMealCount(day, member.userId, 'dinner', e.target.value)}
-                                  disabled={!canEdit}
-                                  onClick={(e) => e.target.select()}
-                                />
-                              )}
-                            </div>
-                          </td>
+                          {types.map((t, ti) => renderMealCell(
+                            day, member, t, t,
+                            ti === types.length - 1 && memberIndex < group.members.length - 1
+                          ))}
                         </React.Fragment>
                       );
                     })}
@@ -602,20 +524,22 @@ const MealSheet = ({ group, isManager, initialMealSheet, onUpdate }) => {
                 <tr className="bg-gradient-to-r from-primary to-blue-600 text-white font-bold">
                   <td className="day-column day-header text-sm">Total</td>
                   {group?.members.map((member, memberIndex) => {
+                    const types = getMemberMealTypes(member.userId);
+                    if (!types.length) return null;
                     const isInactive = member.status === 'inactive';
-                    let bTotal = 0, lTotal = 0, dTotal = 0;
-                    Array.from({ length: daysInMonth }, (_, i) => i + 1).forEach(day => {
-                      if (getMealStatus(day, member.userId, 'breakfast')) bTotal += getMealCount(day, member.userId, 'breakfast');
-                      if (getMealStatus(day, member.userId, 'lunch')) lTotal += getMealCount(day, member.userId, 'lunch');
-                      if (getMealStatus(day, member.userId, 'dinner')) dTotal += getMealCount(day, member.userId, 'dinner');
-                    });
                     return (
                       <React.Fragment key={`total-${member.userId}`}>
-                        <td className={`text-center font-bold text-sm ${isInactive ? 'bg-gray-400 text-white' : 'bg-blue-600 text-white'}`}>{bTotal}</td>
-                        <td className={`text-center font-bold text-sm ${isInactive ? 'bg-gray-400 text-white' : 'bg-purple-600 text-white'}`}>{lTotal}</td>
-                        <td className={`text-center font-bold text-sm ${isInactive ? 'bg-gray-400 text-white' : 'bg-green-600 text-white'} ${
-                          memberIndex < group.members.length - 1 ? 'border-r-4 border-white/30' : ''
-                        }`}>{dTotal}</td>
+                        {types.map((t, ti) => {
+                          let total = 0;
+                          Array.from({ length: daysInMonth }, (_, i) => i + 1).forEach(day => {
+                            if (getMealStatus(day, member.userId, t.key)) total += getMealCount(day, member.userId, t.key);
+                          });
+                          return (
+                            <td key={t.key} className={`text-center font-bold text-sm ${isInactive ? 'bg-gray-400 text-white' : t.footerClass} ${
+                              ti === types.length - 1 && memberIndex < group.members.length - 1 ? 'border-r-4 border-white/30' : ''
+                            }`}>{total}</td>
+                          );
+                        })}
                       </React.Fragment>
                     );
                   })}

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
 import { FaBullhorn, FaThumbtack, FaTrash } from 'react-icons/fa';
 import { db } from '../../firebase/config';
 import { doc, deleteDoc } from 'firebase/firestore';
 import Swal from 'sweetalert2';
+import { formatMessageTime } from './formatMessageTime';
 
 const AnnouncementItem = ({ message, groupId, isManager }) => {
   const [deleting, setDeleting] = useState(false);
@@ -53,11 +53,7 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
     return senderName;
   };
 
-  const getTimeAgo = () => {
-    if (!message.timestamp) return 'Just now';
-    const date = message.timestamp.toDate ? message.timestamp.toDate() : new Date(message.timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
-  };
+  const getTimeAgo = () => formatMessageTime(message.timestamp);
 
   return (
     <div className="w-full">

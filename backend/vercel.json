@@ -13,6 +13,16 @@
       "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
     }
   ],
+  "crons": [
+    {
+      "path": "/api/email/cron/morning-reminder",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/email/cron/evening-reminder",
+      "schedule": "0 12 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

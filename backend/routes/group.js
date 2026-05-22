@@ -600,4 +600,25 @@ router.delete('/cancel-request', verifyToken, async (req, res) => {
   }
 });
 
+// PATCH /api/group/toggle-fine - Manager toggles fine feature on/off
+router.patch('/toggle-fine', verifyToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const user = await User.findOne({ uid });
+    if (!user?.groupId) return res.status(404).json({ error: 'No group found' });
+
+    const group = await Group.findById(user.groupId);
+    if (group.managerId !== uid) {
+      return res.status(403).json({ error: 'Only manager can toggle fine feature' });
+    }
+
+    group.fineEnabled = !group.fineEnabled;
+    await group.save();
+
+    res.json({ fineEnabled: group.fineEnabled });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
