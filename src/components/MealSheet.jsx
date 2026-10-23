@@ -1,25 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
-import { format } from 'date-fns';
-import { FaUtensils, FaCalendarAlt, FaInfoCircle, FaCoffee, FaHamburger, FaMoon, FaUserSlash, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { format, isToday as isTodayFn, getDay } from 'date-fns';
+import { FaUtensils, FaChevronLeft, FaChevronRight, FaMinus, FaPlus } from 'react-icons/fa';
 import { queryKeys, fetchMeal, fetchMealConfig } from '../lib/queries';
 
+// Breakfast, Lunch and Dinner
 const MEAL_TYPES = [
-  { key: 'breakfast', short: 'B', headerClass: 'bg-blue-100 text-blue-700', cellClass: 'bg-blue-50/50', footerClass: 'bg-blue-600 text-white', checkbox: 'checkbox-primary' },
-  { key: 'lunch', short: 'L', headerClass: 'bg-purple-100 text-purple-700', cellClass: 'bg-purple-50/50', footerClass: 'bg-purple-600 text-white', checkbox: 'checkbox-secondary' },
-  { key: 'dinner', short: 'D', headerClass: 'bg-green-100 text-green-700', cellClass: 'bg-green-50/50', footerClass: 'bg-green-600 text-white', checkbox: 'checkbox-accent' },
+  { key: 'breakfast', label: 'Breakfast' },
+  { key: 'lunch', label: 'Lunch' },
+  { key: 'dinner', label: 'Dinner' },
 ];
 
 const MealSheet = ({ group, isManager, onUpdate }) => {
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [pendingChanges, setPendingChanges] = useState({});
   const [saving, setSaving] = useState(false);
-  const { getAuthHeaders } = useAuth();
+  const [mobileView, setMobileView] = useState('day'); // 'day' | 'month'
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const { getAuthHeaders, userData } = useAuth();
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Refs for sticky header measurement
+  const scrollWrapperRef = useRef(null);
+  const headerRow1Ref = useRef(null);
+  const [headerRow1Height, setHeaderRow1Height] = useState(49); // Fallback until measured
+  const [isScrolledX, setIsScrolledX] = useState(false);
 
   const { data: mealSheetRaw, isLoading: loading } = useQuery({
     queryKey: queryKeys.meal(currentMonth),
@@ -35,24 +44,8 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
     refetchInterval: 1000 * 10,
   });
 
-  const getMemberMealTypes = (userId) => {
-    if (!mealConfig?.configs) return [];
-    const cfg = mealConfig.configs.find(c => c.userId === userId);
-    if (!cfg) return [];
-    return MEAL_TYPES.filter(t => cfg[t.key]);
-  };
-
-  const usedMealTypes = React.useMemo(() => {
-    if (!mealConfig?.configs) return [];
-    const keys = new Set();
-    mealConfig.configs.forEach(c => {
-      MEAL_TYPES.forEach(t => { if (c[t.key]) keys.add(t.key); });
-    });
-    return MEAL_TYPES.filter(t => keys.has(t.key));
-  }, [mealConfig]);
-
-  // Normalize days: Map → plain object, ensure arrays
-  const mealSheet = React.useMemo(() => {
+  // Normalize mealSheet data
+  const mealSheet = useMemo(() => {
     if (!mealSheetRaw) return null;
     const normalized = { ...mealSheetRaw };
     if (normalized.days instanceof Map) {
@@ -66,71 +59,132 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
     return normalized;
   }, [mealSheetRaw]);
 
+  // Get active members only (who have meal config)
+  const activeMembers = useMemo(() => {
+    if (!group?.members || !mealConfig?.configs) return [];
+    return group.members.filter(member => {
+      const cfg = mealConfig.configs.find(c => c.userId === member.userId);
+      return cfg && (cfg.breakfast || cfg.lunch || cfg.dinner);
+    });
+  }, [group, mealConfig]);
+
+  // Get meal types enabled for a specific user
+  const getUserMealTypes = (userId) => {
+    if (!mealConfig?.configs) return [];
+    const cfg = mealConfig.configs.find(c => c.userId === userId);
+    if (!cfg) return [];
+    return MEAL_TYPES.filter(type => cfg[type.key]);
+  };
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!mealSheet?.days || !activeMembers.length) {
+      return { totalMeals: 0, totalBreakfast: 0, totalLunch: 0, totalDinner: 0, today: 0 };
+    }
+
+    let totalMeals = 0, totalBreakfast = 0, totalLunch = 0, totalDinner = 0, today = 0;
+    const todayDay = new Date().getDate();
+    const todayMonth = format(new Date(), 'yyyy-MM');
+
+    Object.entries(mealSheet.days).forEach(([day, dayMeals]) => {
+      if (!Array.isArray(dayMeals)) return;
+      const dayNum = parseInt(day);
+      const isToday = dayNum === todayDay && currentMonth === todayMonth;
+
+      dayMeals.forEach(meal => {
+        const breakfastCount = meal.breakfast ? (meal.breakfastCount || 1) : 0;
+        const lunchCount = meal.lunch ? (meal.lunchCount || 1) : 0;
+        const dinnerCount = meal.dinner ? (meal.dinnerCount || 1) : 0;
+        totalBreakfast += breakfastCount;
+        totalLunch += lunchCount;
+        totalDinner += dinnerCount;
+        totalMeals += breakfastCount + lunchCount + dinnerCount;
+        if (isToday) today += breakfastCount + lunchCount + dinnerCount;
+      });
+    });
+
+    return { totalMeals, totalBreakfast, totalLunch, totalDinner, today };
+  }, [mealSheet, currentMonth, activeMembers]);
+
+  // Measure header row 1 height and set CSS variable
+  useEffect(() => {
+    if (!headerRow1Ref.current || !scrollWrapperRef.current) return;
+    
+    const measureAndSet = () => {
+      // Use requestAnimationFrame to ensure layout is complete
+      requestAnimationFrame(() => {
+        if (!headerRow1Ref.current || !scrollWrapperRef.current) return;
+        const height = headerRow1Ref.current.getBoundingClientRect().height;
+        setHeaderRow1Height(height);
+        // Set exact height - Row 2 will overlap Row 1's bottom border
+        scrollWrapperRef.current.style.setProperty('--head1-h', `${height}px`);
+      });
+    };
+
+    const observer = new ResizeObserver(measureAndSet);
+    observer.observe(headerRow1Ref.current);
+    
+    // Also measure on window resize
+    window.addEventListener('resize', measureAndSet);
+    
+    // Also measure on font load
+    if (document.fonts) {
+      document.fonts.ready.then(measureAndSet);
+    }
+    
+    // Initial measurement with slight delay
+    const timer = setTimeout(measureAndSet, 0);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measureAndSet);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Handle horizontal scroll for shadow effect
+  useEffect(() => {
+    const wrapper = scrollWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      setIsScrolledX(wrapper.scrollLeft > 0);
+    };
+
+    wrapper.addEventListener('scroll', handleScroll);
+    return () => wrapper.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Clear pending changes when month changes
   useEffect(() => {
     setPendingChanges({});
   }, [currentMonth]);
 
-  const updateMealCount = (day, userId, mealType, count) => {
-    if (!isManager) {
-      burgerToast.error('Only manager can edit meals');
-      return;
+  // Auto-select today if in current month
+  useEffect(() => {
+    const todayMonth = format(new Date(), 'yyyy-MM');
+    if (currentMonth === todayMonth) {
+      setSelectedDay(new Date().getDate());
+    } else {
+      setSelectedDay(1);
     }
+  }, [currentMonth]);
 
-    const member = group?.members.find(m => m.userId === userId);
-    if (!canEditMealForDate(member, day)) {
-      burgerToast.error('Cannot edit meals for this member on this date');
-      return;
-    }
-
-    const changeKey = `${day}-${userId}-${mealType}-count`;
-    setPendingChanges(prev => ({
-      ...prev,
-      [changeKey]: {
-        day, userId, mealType,
-        count: Math.max(1, parseInt(count) || 1),
-        type: 'count',
-      },
-    }));
-  };
-
-  const getMealCount = (day, userId, mealType) => {
-    // Check pending changes first (optimistic)
-    const countKey = `${day}-${userId}-${mealType}-count`;
-    if (pendingChanges[countKey]) return pendingChanges[countKey].count;
-
-    if (!mealSheet?.days) return 1;
-    const dayMeals = mealSheet.days[day.toString()];
-    if (!dayMeals || !Array.isArray(dayMeals)) return 1;
-    const userMeal = dayMeals.find(m => m.userId === userId);
-    return userMeal?.[`${mealType}Count`] || 1;
-  };
-
-  // Check if a member can have meals edited for a specific date
   const canEditMealForDate = (member, day) => {
     if (!member) return false;
-    
-    // If member is inactive, cannot edit
     if (member.status === 'inactive') return false;
     
-    // Create date from month and day
     const mealDate = new Date(`${currentMonth}-${day.toString().padStart(2, '0')}`);
     
-    // If member left and rejoined, check if date is in inactive period
     if (member.leftAt && member.rejoinedAt) {
       const leftDate = new Date(member.leftAt);
       const rejoinDate = new Date(member.rejoinedAt);
-      if (mealDate >= leftDate && mealDate < rejoinDate) {
-        return false;
-      }
+      if (mealDate >= leftDate && mealDate < rejoinDate) return false;
     }
     
-    // If member left but hasn't rejoined, check if date is after leave date
     if (member.leftAt && !member.rejoinedAt) {
       const leftDate = new Date(member.leftAt);
-      if (mealDate >= leftDate) {
-        return false;
-      }
+      if (mealDate >= leftDate) return false;
     }
     
     return true;
@@ -153,17 +207,37 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
     const changeKey = `${day}-${userId}-${mealType}`;
 
     setPendingChanges(prev => {
-      const updated = {
-        ...prev,
-        [changeKey]: { day, userId, mealType, type: 'set', value: newStatus },
-      };
+      const updated = { ...prev };
+      updated[changeKey] = { day, userId, mealType, type: 'set', value: newStatus };
       if (!newStatus) delete updated[`${day}-${userId}-${mealType}-count`];
       return updated;
     });
   };
 
+  const updateMealCount = (day, userId, mealType, count) => {
+    if (!isManager) {
+      burgerToast.error('Only manager can edit meals');
+      return;
+    }
+
+    const member = group?.members.find(m => m.userId === userId);
+    if (!canEditMealForDate(member, day)) {
+      burgerToast.error('Cannot edit meals for this member on this date');
+      return;
+    }
+
+    const changeKey = `${day}-${userId}-${mealType}-count`;
+    setPendingChanges(prev => ({
+      ...prev,
+      [changeKey]: {
+        day, userId, mealType,
+        count: Math.max(1, Math.min(10, parseInt(count) || 1)),
+        type: 'count',
+      },
+    }));
+  };
+
   const getMealStatus = (day, userId, mealType) => {
-    // Check pending changes first (optimistic)
     const toggleKey = `${day}-${userId}-${mealType}`;
     if (pendingChanges[toggleKey]) return pendingChanges[toggleKey].value;
 
@@ -174,14 +248,23 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
     return userMeal?.[mealType] || false;
   };
 
-  const hasPendingChanges = () => {
-    return Object.keys(pendingChanges).length > 0;
+  const getMealCount = (day, userId, mealType) => {
+    const countKey = `${day}-${userId}-${mealType}-count`;
+    if (pendingChanges[countKey]) return pendingChanges[countKey].count;
+
+    if (!mealSheet?.days) return 1;
+    const dayMeals = mealSheet.days[day.toString()];
+    if (!dayMeals || !Array.isArray(dayMeals)) return 1;
+    const userMeal = dayMeals.find(m => m.userId === userId);
+    return userMeal?.[`${mealType}Count`] || 1;
   };
+
+  const hasPendingChanges = () => Object.keys(pendingChanges).length > 0;
 
   const hasCellChanged = (day, userId, mealType) => {
     const toggleKey = `${day}-${userId}-${mealType}`;
     const countKey = `${day}-${userId}-${mealType}-count`;
-    return pendingChanges[toggleKey] || pendingChanges[countKey];
+    return !!(pendingChanges[toggleKey] || pendingChanges[countKey]);
   };
 
   const saveChanges = async () => {
@@ -195,7 +278,6 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
 
     try {
       const changesArray = Object.values(pendingChanges);
-
       const response = await axios.post(
         `${API_URL}/meal/batch-update`,
         { month: currentMonth, changes: changesArray },
@@ -203,10 +285,7 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
       );
 
       const { successCount, errorCount, errors } = response.data;
-
       setPendingChanges({});
-
-      // Invalidate TanStack Query cache — triggers refetch for all users
       queryClient.invalidateQueries({ queryKey: queryKeys.meal(currentMonth) });
 
       if (errorCount === 0) {
@@ -240,317 +319,653 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  const renderMealCell = (day, member, mealType, meta, isLastCol) => {
-    const canEdit = isManager && canEditMealForDate(member, day);
-    const changed = hasCellChanged(day, member.userId, mealType.key);
-    return (
-      <td
-        key={`${day}-${member.userId}-${mealType.key}`}
-        className={`text-center p-1 ${member.status === 'inactive' ? 'bg-gray-100/50' : meta.cellClass} ${changed ? 'bg-yellow-200 ring-2 ring-yellow-400' : ''} ${isLastCol ? 'border-r-4 border-primary/30' : ''}`}
-      >
-        <div className="flex items-center justify-center gap-1">
-          <input
-            type="checkbox"
-            className={`checkbox checkbox-sm ${meta.checkbox} hover:scale-110 transition-transform disabled:opacity-30`}
-            checked={getMealStatus(day, member.userId, mealType.key)}
-            onChange={() => toggleMeal(day, member.userId, mealType.key)}
-            disabled={!canEdit}
-          />
-          {getMealStatus(day, member.userId, mealType.key) && (
-            <input
-              type="number"
-              min="1"
-              max="10"
-              className="input input-xs w-10 h-6 text-center p-0 border-primary/30 disabled:opacity-30"
-              value={getMealCount(day, member.userId, mealType.key)}
-              onChange={(e) => updateMealCount(day, member.userId, mealType.key, e.target.value)}
-              disabled={!canEdit}
-              onClick={(e) => e.target.select()}
-            />
-          )}
-        </div>
-      </td>
-    );
+  // Check if day is today
+  const isToday = (day) => {
+    const todayMonth = format(new Date(), 'yyyy-MM');
+    const todayDay = new Date().getDate();
+    return currentMonth === todayMonth && day === todayDay;
+  };
+
+  // Get day name
+  const getDayName = (day) => {
+    const date = new Date(year, month - 1, day);
+    return format(date, 'EEE');
   };
 
   if (loading || configLoading) {
-    return <div className="flex justify-center"><span className="loading loading-spinner"></span></div>;
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <span className="loading loading-spinner loading-lg text-neutral"></span>
+      </div>
+    );
   }
 
-  if (!mealConfig) {
+  if (!mealConfig || activeMembers.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-3 rounded-full">
-              <FaUtensils className="text-3xl text-white" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Meal Sheet</h2>
-              <p className="text-white/80 text-sm">{currentMonth}</p>
-            </div>
-          </div>
+      <div className="space-y-6 px-3.5 lg:px-5 max-w-[1180px] mx-auto">
+        <div className="text-left">
+          <h1 className="text-2xl lg:text-3xl font-extrabold text-base-content tracking-tight">Meal Sheet</h1>
+          <p className="text-base-content/70 mt-1">Track daily meals for all members</p>
         </div>
-        <div className="card bg-base-100 shadow-xl border-2 border-warning/30">
-          <div className="card-body items-center text-center py-16">
-            <FaUtensils className="text-6xl text-warning/40 mb-4" />
-            <h3 className="text-xl font-bold text-base-content">Meal types not configured</h3>
-            <p className="text-base-content/60 mt-2 max-w-md">
-              The manager has not set up meal types for {currentMonth} yet.
-              {isManager
-                ? ' Go to Manager Settings → Meals tab to configure each member\'s meal types.'
-                : ' Please ask your manager to configure meal types for this month.'}
-            </p>
-          </div>
+        <div className="bg-base-200 border border-base-content/15 rounded-2xl p-16 text-center">
+          <FaUtensils className="text-6xl text-base-content/20 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-base-content">Meal types not configured</h3>
+          <p className="text-base-content/60 mt-2 max-w-md mx-auto">
+            {isManager
+              ? 'Go to Manager Settings → Meals tab to configure each member\'s meal types.'
+              : 'Please ask your manager to configure meal types for this month.'}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Premium Header */}
-      <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-3 rounded-full">
-              <FaUtensils className="text-3xl text-white" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Meal Sheet</h2>
-              <p className="text-white/80 text-sm">Track daily meals for all members</p>
-            </div>
+    <div className="space-y-6 mx-auto pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      {/* Header */}
+      <div className="text-left">
+        <h1 className="text-2xl lg:text-3xl font-extrabold text-base-content tracking-tight">Meal Sheet</h1>
+        <p className="text-base-content/70 mt-1">Track daily meals for all members</p>
+      </div>
+
+      {/* Month Switcher */}
+      <div className="bg-base-200 rounded-xl border border-base-content/15 p-2">
+        <div className="join w-full">
+          <button
+            type="button"
+            onClick={() => navigateMonth(-1)}
+            className="btn btn-sm btn-square join-item bg-base-100 border-base-content/15 hover:bg-base-300 text-base-content"
+          >
+            <FaChevronLeft />
+          </button>
+          <div className="join-item flex items-center justify-center flex-1 min-w-[130px] font-semibold text-base-content px-4">
+            {format(new Date(year, month - 1), 'MMMM yyyy')}
           </div>
-          <div className="flex items-center gap-2 w-full">
-            <label className="text-white text-sm font-medium flex items-center gap-2 shrink-0">
-              <FaCalendarAlt className="text-lg" />
-              Month:
-            </label>
-            <button
-              type="button"
-              onClick={() => navigateMonth(-1)}
-              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0"
-            >
-              <FaChevronLeft />
-            </button>
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="month"
-                id="mealMonthPicker"
-                className="input input-bordered bg-white text-gray-800 font-medium shadow-md w-full cursor-pointer"
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(e.target.value)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => navigateMonth(1)}
-              className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0"
-            >
-              <FaChevronRight />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigateMonth(1)}
+            className="btn btn-sm btn-square join-item bg-base-100 border-base-content/15 hover:bg-base-300 text-base-content"
+          >
+            <FaChevronRight />
+          </button>
         </div>
       </div>
 
-      {/* Read-only Alert */}
-      {!isManager && (
-        <div className="alert bg-primary/10 border-2 border-primary/30 shadow-lg">
-          <FaInfoCircle className="text-primary text-xl" />
-          <span className="text-primary font-medium">You are viewing in read-only mode. Only the manager can edit meals.</span>
-        </div>
-      )}
-
-      {/* Inactive Members Info */}
-      {group?.members.some(m => m.status === 'inactive') && (
-        <div className="alert bg-gray-100 border-2 border-gray-300 shadow-lg">
-          <FaUserSlash className="text-gray-600 text-xl" />
-          <div>
-            <span className="text-gray-700 font-medium">Inactive members are shown with gray background.</span>
-            <p className="text-sm text-gray-600">Their historical data is preserved but cannot be edited.</p>
+      {/* Stats Row */}
+      {(() => {
+        // Get meal types enabled by ANY member in the group
+        const groupEnabledMealTypes = new Set();
+        if (mealConfig?.configs) {
+          mealConfig.configs.forEach(cfg => {
+            if (cfg.breakfast) groupEnabledMealTypes.add('breakfast');
+            if (cfg.lunch) groupEnabledMealTypes.add('lunch');
+            if (cfg.dinner) groupEnabledMealTypes.add('dinner');
+          });
+        }
+        
+        // Build stats array - always include Total meals first
+        const allStats = [
+          { label: 'Total meals', value: stats.totalMeals, color: '--meal-lunch', key: 'total' },
+          { label: 'Breakfast', value: stats.totalBreakfast, color: '--meal-breakfast', key: 'breakfast' },
+          { label: 'Lunch', value: stats.totalLunch, color: '--meal-lunch', key: 'lunch' },
+          { label: 'Dinner', value: stats.totalDinner, color: '--meal-dinner', key: 'dinner' },
+          { label: 'Today', value: stats.today, color: '--color-accent', key: 'today' },
+        ];
+        
+        // Filter: show Total + group-enabled meal types + Today
+        const filteredStats = allStats.filter(stat => 
+          stat.key === 'total' || stat.key === 'today' || groupEnabledMealTypes.has(stat.key)
+        );
+        
+        // Dynamic grid: lg uses card count, mobile uses 2 cols
+        const cardCount = filteredStats.length;
+        const hasThreeMealTypes = groupEnabledMealTypes.size === 3;
+        
+        // Grid classes based on card count (for large screens)
+        const gridColsLg = cardCount === 3 ? 'lg:grid-cols-3' : 
+                          cardCount === 4 ? 'lg:grid-cols-4' : 
+                          'lg:grid-cols-5';
+        
+        return (
+          <div className={`grid grid-cols-2 ${gridColsLg} gap-3`}>
+            {filteredStats.map(({ label, value, color, key }, idx) => (
+              <div 
+                key={idx} 
+                className={`bg-base-200 border border-base-content/15 rounded-2xl p-4 relative overflow-hidden ${
+                  hasThreeMealTypes && idx === 0 ? 'col-span-2 lg:col-span-1' : ''
+                }`}
+              >
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[5px]"
+                  style={{ backgroundColor: `var(${color})` }}
+                />
+                <p className="text-sm text-base-content/70 mb-1">{label}</p>
+                <p className="text-3xl font-extrabold text-base-content tabular-nums">{value}</p>
+              </div>
+            ))}
           </div>
+        );
+      })()}
+
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-base-200 rounded-xl border border-base-content/15 p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          {(() => {
+            // Get meal types enabled by ANY member in the group
+            const groupEnabledMealTypes = new Set();
+            if (mealConfig?.configs) {
+              mealConfig.configs.forEach(cfg => {
+                if (cfg.breakfast) groupEnabledMealTypes.add('breakfast');
+                if (cfg.lunch) groupEnabledMealTypes.add('lunch');
+                if (cfg.dinner) groupEnabledMealTypes.add('dinner');
+              });
+            }
+            
+            const legendItems = [
+              { key: 'breakfast', label: 'Breakfast', tint: '--meal-breakfast-tint', fill: '--meal-breakfast' },
+              { key: 'lunch', label: 'Lunch', tint: '--meal-lunch-tint', fill: '--meal-lunch' },
+              { key: 'dinner', label: 'Dinner', tint: '--meal-dinner-tint', fill: '--meal-dinner' },
+            ];
+            
+            // Filter to show only group-enabled meal types
+            return legendItems
+              .filter(item => groupEnabledMealTypes.has(item.key))
+              .map(({ key, label, tint, fill }) => (
+                <span key={key} className="inline-flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px]"
+                    style={{ backgroundColor: `var(${tint})`, borderColor: 'var(--meal-cell-border)' }}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: `var(${fill})` }} />
+                  </span>
+                  <span className="text-sm font-semibold text-base-content">{label}</span>
+                </span>
+              ));
+          })()}
+          
+          <span className="text-xs text-base-content/60 block sm:inline mt-2 sm:mt-0">
+            Number = meal count. 1 is own, 2 or more means guests.
+          </span>
         </div>
-      )}
+        {/* View Switch - Show on ALL devices */}
+        <div className="join">
+          <button
+            type="button"
+            className={`btn btn-sm join-item ${mobileView === 'day' ? '' : 'btn-ghost'}`}
+            style={mobileView === 'day' ? { backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)' } : {}}
+            onClick={() => setMobileView('day')}
+          >
+            Day
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm join-item ${mobileView === 'month' ? '' : 'btn-ghost'}`}
+            style={mobileView === 'month' ? { backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)' } : {}}
+            onClick={() => setMobileView('month')}
+          >
+            Month
+          </button>
+        </div>
+      </div>
 
       {/* Save Changes Bar */}
       {hasPendingChanges() && (
-        <div className="alert bg-warning/20 border-2 border-warning shadow-xl">
-          <FaInfoCircle className="text-warning text-xl sm:text-2xl flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <span className="text-warning font-bold text-sm sm:text-lg block">
-              You have {Object.keys(pendingChanges).length} unsaved change{Object.keys(pendingChanges).length > 1 ? 's' : ''}
+        <div className="bg-warning/20 border-2 border-warning rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex-1">
+            <span className="text-warning font-bold text-sm sm:text-base block">
+              {Object.keys(pendingChanges).length} unsaved change{Object.keys(pendingChanges).length > 1 ? 's' : ''}
             </span>
-            <p className="text-xs sm:text-sm text-gray-700 hidden sm:block">Click "Save Changes" to update the database</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button 
-              className="btn btn-error btn-xs sm:btn-sm"
-              onClick={discardChanges}
-              disabled={saving}
-            >
+          <div className="flex gap-2">
+            <button className="btn btn-error btn-sm" onClick={discardChanges} disabled={saving}>
               Discard
             </button>
-            <button 
-              className="btn btn-success btn-xs sm:btn-sm"
-              onClick={saveChanges}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <span className="loading loading-spinner loading-xs"></span>
-                  <span className="hidden sm:inline">Saving...</span>
-                </>
-              ) : (
-                <>
-                  <span className="hidden sm:inline">Save Changes</span>
-                  <span className="sm:hidden">Save</span>
-                </>
-              )}
+            <button className="btn btn-success btn-sm" onClick={saveChanges} disabled={saving}>
+              {saving ? <span className="loading loading-spinner loading-xs"></span> : 'Save Changes'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Legend — only configured meal types */}
-      {usedMealTypes.length > 0 && (
-      <div className="card bg-base-100 shadow-xl border-2 border-primary/20">
-        <div className="card-body p-4 sm:p-6">
-          <div className="flex flex-wrap gap-2 sm:gap-4 items-stretch sm:items-center">
-            {usedMealTypes.map((t, i) => {
-              const icons = { breakfast: FaCoffee, lunch: FaHamburger, dinner: FaMoon };
-              const colors = {
-                breakfast: { bg: 'from-blue-50 to-blue-100', border: 'border-blue-200/50', icon: 'from-blue-500 to-blue-600', text: 'text-blue-700' },
-                lunch: { bg: 'from-purple-50 to-purple-100', border: 'border-purple-200/50', icon: 'from-purple-500 to-purple-600', text: 'text-purple-700' },
-                dinner: { bg: 'from-green-50 to-green-100', border: 'border-green-200/50', icon: 'from-green-500 to-green-600', text: 'text-green-700' },
-              };
-              const c = colors[t.key];
-              const Icon = icons[t.key];
-              const label = t.key.charAt(0).toUpperCase() + t.key.slice(1);
+      {/* Mobile Day View */}
+      {mobileView === 'day' && (
+        <div className="space-y-4">
+          {/* Date Strip */}
+          <div className="overflow-x-auto -mx-3.5 px-3.5" style={{ scrollSnapType: 'x mandatory' }}>
+            <div className="flex gap-2 pb-2">
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                const selected = day === selectedDay;
+                const today = isToday(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setSelectedDay(day)}
+                    className="shrink-0 w-[54px] rounded-xl border-[1.5px] py-2 px-1 text-center transition-all"
+                    style={
+                      selected
+                        ? { backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)', borderColor: 'var(--meal-lunch)' }
+                        : { backgroundColor: 'var(--color-base-200)', borderColor: 'var(--meal-line)', color: 'var(--color-base-content)', scrollSnapAlign: 'start' }
+                    }
+                  >
+                    <div className={`text-lg font-bold ${selected ? '' : today ? 'text-warning' : ''}`}>{day}</div>
+                    <div className="text-[11px] opacity-70">{getDayName(day).slice(0, 3)}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Member Cards */}
+          <div className="space-y-3">
+            {activeMembers.map(member => {
+              const canEdit = isManager && canEditMealForDate(member, selectedDay);
+              const initials = member.name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2);
+
               return (
-                <div key={t.key} className={`flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 p-2 sm:px-5 sm:py-3 rounded-2xl bg-gradient-to-br ${c.bg} shadow-md border-2 ${c.border}`}>
-                  <div className={`bg-gradient-to-br ${c.icon} p-2.5 sm:p-3 rounded-2xl shadow-lg`}>
-                    <Icon className="text-white text-lg sm:text-2xl" />
+                <div key={member.userId} className="bg-base-200 border border-base-content/15 rounded-2xl p-3">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div 
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+                      style={{ backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)' }}
+                    >
+                      {initials}
+                    </div>
+                    <span className="font-bold text-base-content">{member.name}</span>
                   </div>
-                  <span className={`font-bold ${c.text} text-xs sm:text-lg text-center`}>{label}</span>
+
+                  {/* Tiles - Dynamic grid based on user's meal types */}
+                  <div className={`grid gap-2 ${getUserMealTypes(member.userId).length === 1 ? 'grid-cols-1' : getUserMealTypes(member.userId).length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {getUserMealTypes(member.userId).map(({ key, label }) => {
+                      const checked = getMealStatus(selectedDay, member.userId, key);
+                      const count = getMealCount(selectedDay, member.userId, key);
+                      const bgColor = key === 'breakfast' ? 'var(--meal-breakfast-tint)' : (key === 'lunch' ? 'var(--meal-lunch-tint)' : 'var(--meal-dinner-tint)');
+                      const btnBg = key === 'breakfast' ? 'var(--meal-breakfast)' : (key === 'lunch' ? 'var(--meal-lunch)' : 'var(--meal-dinner)');
+                      const btnText = key === 'breakfast' ? 'var(--meal-breakfast-content)' : (key === 'lunch' ? 'var(--meal-lunch-content)' : 'var(--meal-dinner-content)');
+
+                      return (
+                        <div key={key} className="rounded-xl p-3" style={{ backgroundColor: bgColor }}>
+                          <p className="text-xs text-base-content/70 mb-2">{label}</p>
+                          <p className="text-[22px] font-extrabold text-base-content tabular-nums mb-2">{checked ? count : '-'}</p>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="w-10 h-10 rounded-[10px] flex items-center justify-center font-bold text-lg transition-all disabled:opacity-30"
+                              style={{ backgroundColor: btnBg, color: btnText }}
+                              onClick={() => {
+                                if (checked && count > 1) {
+                                  updateMealCount(selectedDay, member.userId, key, count - 1);
+                                } else if (checked) {
+                                  toggleMeal(selectedDay, member.userId, key);
+                                }
+                              }}
+                              disabled={!canEdit || !checked}
+                            >
+                              <FaMinus className="text-sm" />
+                            </button>
+                            <button
+                              type="button"
+                              className="w-10 h-10 rounded-[10px] flex items-center justify-center font-bold text-lg transition-all disabled:opacity-30"
+                              style={{ backgroundColor: btnBg, color: btnText }}
+                              onClick={() => {
+                                if (checked) {
+                                  updateMealCount(selectedDay, member.userId, key, count + 1);
+                                } else {
+                                  toggleMeal(selectedDay, member.userId, key);
+                                }
+                              }}
+                              disabled={!canEdit}
+                            >
+                              <FaPlus className="text-sm" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
-            <div className="hidden sm:block flex-grow"></div>
-            <div className="col-span-full sm:col-span-1 flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-br from-blue-500 to-blue-600 px-4 sm:px-6 py-3 rounded-xl sm:rounded-2xl shadow-md border-2 border-blue-400">
-              <FaInfoCircle className="text-white text-lg sm:text-xl flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-white text-center sm:text-left leading-tight">
-                <span className="font-bold block sm:inline">Number = Meal Count</span>
-                <span className="block sm:inline sm:ml-1 text-white/90">(1 = own, 2+ = with guests)</span>
-              </span>
-            </div>
           </div>
         </div>
-      </div>
       )}
 
-      {/* Premium Table with Fixed Day Column */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary overflow-hidden">
-        <div className="card-body p-0">
-          <div className="meal-table-wrapper">
-            <table className="meal-table">
-              <thead>
-                <tr>
-                  <th className="day-column day-header">
-                    Day
-                  </th>
-                  {group?.members.map((member, index) => {
-                    const types = getMemberMealTypes(member.userId);
-                    if (!types.length) return null;
-                    return (
-                    <th 
-                      key={member.userId} 
-                      colSpan={types.length} 
-                      className={`text-center font-bold text-base px-3 py-2 ${
-                        member.status === 'inactive' 
-                          ? 'bg-gradient-to-br from-gray-400 to-gray-500 text-white' 
-                          : 'bg-gradient-to-br from-primary to-blue-600 text-white'
-                      } ${index < group.members.length - 1 ? 'border-r-4 border-white/20' : ''}`}
+      {/* Month Grid - Show when mobileView === 'month' */}
+      {mobileView === 'month' && (
+      <div className="bg-base-200 border border-base-content/15 rounded-2xl overflow-hidden">
+        <div 
+          ref={scrollWrapperRef}
+          className={`overflow-auto ${mobileView === 'month' && typeof window !== 'undefined' && window.innerWidth < 1024 ? 'max-h-[70vh]' : 'max-h-[min(68vh,700px)]'}`}
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain'
+          }}
+          tabIndex={0}
+          aria-label="Monthly meal grid"
+          data-scrolled-x={isScrolledX || undefined}
+        >
+          <table 
+            className="w-full"
+            style={{ 
+              fontSize: '0.8125rem',
+              minWidth: '820px',
+              borderCollapse: 'separate',
+              borderSpacing: 0
+            }}
+          >
+            <thead>
+              {/* Header Row 1: Member Names */}
+              <tr ref={headerRow1Ref}>
+                <th 
+                  className="text-center min-w-[84px] max-w-[84px] p-2"
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    left: 0,
+                    zIndex: 40,
+                    backgroundColor: 'var(--meal-head)',
+                    borderBottom: '1px solid var(--meal-line)',
+                    borderRight: '1px solid var(--meal-line)',
+                    boxShadow: 'var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), 2px 0 6px -4px rgb(0 0 0 / .25)'
+                  }}
+                >
+                  <span className="text-[13px] font-semibold text-base-content/70">Day</span>
+                </th>
+                {activeMembers.map((member, idx) => {
+                  const initials = member.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
+                  const userMealTypes = getUserMealTypes(member.userId);
+
+                  return (
+                    <th
+                      key={member.userId}
+                      colSpan={userMealTypes.length}
+                      className="p-2 text-center"
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 30,
+                        backgroundColor: 'var(--meal-head)',
+                        borderBottom: '1px solid var(--meal-line)',
+                        borderRight: idx === activeMembers.length - 1 ? 'none' : '1px solid var(--meal-line)'
+                      }}
                     >
                       <div className="flex items-center justify-center gap-2">
-                        {member.name}
-                        {member.status === 'inactive' && (
-                          <span className="badge badge-sm bg-white/20 text-white border-none">Inactive</span>
-                        )}
+                        <div 
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          style={{ backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)' }}
+                        >
+                          {initials}
+                        </div>
+                        <span className="text-[13px] font-semibold text-base-content truncate">{member.name}</span>
                       </div>
                     </th>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th className="day-column day-subheader"></th>
-                  {group?.members.map((member, memberIndex) => {
-                    const types = getMemberMealTypes(member.userId);
-                    if (!types.length) return null;
-                    const isInactive = member.status === 'inactive';
-                    return (
-                      <React.Fragment key={member.userId}>
-                        {types.map((t, ti) => (
-                          <th key={t.key} className={`text-center font-bold ${isInactive ? 'bg-gray-200 text-gray-500' : t.headerClass} ${
-                            ti === types.length - 1 && memberIndex < group.members.length - 1 ? 'border-r-4 border-primary/30' : ''
-                          }`}>{t.short}</th>
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => (
-                    <tr key={day} className="hover:bg-primary/5 transition-colors">
-                      <td className="day-column day-cell">
-                        {day}
-                      </td>
-                    {group?.members.map((member, memberIndex) => {
-                      const types = getMemberMealTypes(member.userId);
-                      if (!types.length) return null;
+                  );
+                })}
+              </tr>
+
+              {/* Header Row 2: Meal Type Labels (dynamic per user) */}
+              <tr>
+                <th
+                  style={{
+                    backgroundColor: 'var(--meal-head)',
+                    borderBottom: '2px solid var(--meal-lunch)',
+                    borderRight: '1px solid var(--meal-line)',
+                    boxShadow: 'var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), 2px 0 6px -4px rgb(0 0 0 / .25)',
+                    paddingTop: '0.5rem'
+                  }}
+                />
+                {activeMembers.map((member, memberIdx) => {
+                  const userMealTypes = getUserMealTypes(member.userId);
+                  return (
+                  <React.Fragment key={`header2-${member.userId}`}>
+                    {userMealTypes.map((mealType, typeIdx) => {
+                      const isLastInMember = typeIdx === userMealTypes.length - 1;
+                      const isLastMember = memberIdx === activeMembers.length - 1;
+                      const getMealTint = (key) => {
+                        if (key === 'breakfast') return 'var(--meal-breakfast-tint)';
+                        if (key === 'lunch') return 'var(--meal-lunch-tint)';
+                        return 'var(--meal-dinner-tint)';
+                      };
+                      
+                      return (
+                        <th
+                          key={mealType.key}
+                          className="text-center text-xs font-semibold text-base-content/70 pb-1"
+                          style={{
+                            backgroundColor: 'var(--meal-head)',
+                            backgroundImage: `linear-gradient(${getMealTint(mealType.key)}, ${getMealTint(mealType.key)})`,
+                            borderBottom: '2px solid var(--meal-lunch)',
+                            borderRight: (isLastInMember && !isLastMember) ? '1px solid var(--meal-line)' : undefined,
+                            paddingTop: '0.5rem'
+                          }}
+                        >
+                          {mealType.label}
+                        </th>
+                      );
+                    })}
+                  </React.Fragment>
+                  );
+                })}
+              </tr>
+            </thead>
+
+            <tbody>
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                const isTodayRow = isToday(day);
+                const isFriday = getDay(new Date(year, month - 1, day)) === 5;
+                const isEven = day % 2 === 0;
+                const rowBg = isTodayRow ? 'var(--meal-today)' : isEven ? 'var(--meal-row-alt)' : 'transparent';
+
+                return (
+                  <tr key={day} style={{ backgroundColor: rowBg }}>
+                    {/* Day Column */}
+                    <td 
+                      className="p-2 text-center min-w-[84px] max-w-[84px]"
+                      style={{
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 20,
+                        backgroundColor: isTodayRow ? 'var(--meal-today)' : 'var(--meal-daycell)',
+                        borderBottom: '1px solid var(--meal-line)',
+                        borderRight: '1px solid var(--meal-line)',
+                        boxShadow: isScrolledX ? '2px 0 6px -4px rgb(0 0 0 / .25)' : 'none'
+                      }}
+                    >
+                      <div className="text-[13px] font-semibold text-base-content">
+                        {day} {getDayName(day).slice(0, 3)}
+                        {isTodayRow && <span className="text-[10px] text-base-content/60 ml-1">today</span>}
+                      </div>
+                      {isFriday && !isTodayRow && <div className="text-[10px] text-base-content/60">Fri</div>}
+                    </td>
+
+                    {/* Meal Cells - Only show enabled meal types for this user */}
+                    {activeMembers.map((member, memberIdx) => {
+                      const userMealTypes = getUserMealTypes(member.userId);
                       return (
                         <React.Fragment key={`${member.userId}-${day}`}>
-                          {types.map((t, ti) => renderMealCell(
-                            day, member, t, t,
-                            ti === types.length - 1 && memberIndex < group.members.length - 1
-                          ))}
+                          {userMealTypes.map((mealType, typeIdx) => {
+                            const canEdit = isManager && canEditMealForDate(member, day);
+                            const checked = getMealStatus(day, member.userId, mealType.key);
+                            const count = getMealCount(day, member.userId, mealType.key);
+                            const changed = hasCellChanged(day, member.userId, mealType.key);
+                            
+                            // Get colors based on meal type
+                            const getMealColors = (key) => {
+                              if (key === 'breakfast') return { tint: 'var(--meal-breakfast-tint)', fill: 'var(--meal-breakfast)', content: 'var(--meal-breakfast-content)' };
+                              if (key === 'lunch') return { tint: 'var(--meal-lunch-tint)', fill: 'var(--meal-lunch)', content: 'var(--meal-lunch-content)' };
+                              return { tint: 'var(--meal-dinner-tint)', fill: 'var(--meal-dinner)', content: 'var(--meal-dinner-content)' };
+                            };
+                            const colors = getMealColors(mealType.key);
+                            const isLastInMember = typeIdx === userMealTypes.length - 1;
+                            const isLastMember = memberIdx === activeMembers.length - 1;
+                            const isLastCol = isLastInMember && !isLastMember;
+
+                            return (
+                              <td
+                                key={mealType.key}
+                                className="text-center p-1"
+                                style={{
+                                  position: 'relative',
+                                  zIndex: 0,
+                                  backgroundColor: isTodayRow ? 'var(--meal-today)' : colors.tint,
+                                  borderBottom: '1px solid var(--meal-line)',
+                                  borderRight: isLastCol ? '1px solid var(--meal-line)' : undefined,
+                                }}
+                              >
+                                <div className="flex items-center justify-center gap-1 my-[3px]">
+                                  {/* Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleMeal(day, member.userId, mealType.key)}
+                                    disabled={!canEdit}
+                                    className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center font-bold transition-all disabled:opacity-60"
+                                    style={{
+                                      backgroundColor: checked ? (count >= 2 ? 'var(--meal-guest)' : colors.fill) : 'transparent',
+                                      border: checked ? 'none' : '1.5px solid var(--meal-cell-border)',
+                                      boxShadow: (checked && count >= 2) ? '0 0 0 2px var(--color-accent)' : 'none',
+                                      cursor: canEdit ? 'pointer' : 'default',
+                                      outline: changed ? '2px solid var(--color-warning)' : 'none',
+                                      outlineOffset: changed ? '2px' : '0',
+                                    }}
+                                    aria-label={`${member.name} ${mealType.label}, day ${day}`}
+                                  >
+                                    {checked && (
+                                      <svg 
+                                        className="w-5 h-5" 
+                                        fill="none" 
+                                        viewBox="0 0 24 24" 
+                                        stroke="currentColor" 
+                                        strokeWidth="3"
+                                        style={{
+                                          color: count >= 2 ? 'var(--meal-guest-content)' : colors.content
+                                        }}
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  
+                                  {/* Count Input */}
+                                  {checked && (
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="10"
+                                      value={count}
+                                      onChange={(e) => updateMealCount(day, member.userId, mealType.key, e.target.value)}
+                                      disabled={!canEdit}
+                                      className="w-9 h-9 rounded-lg bg-base-100 text-center text-sm font-semibold text-base-content tabular-nums focus:outline-none disabled:opacity-60"
+                                      style={{
+                                        border: '1px solid var(--meal-line)',
+                                        outline: '3px solid var(--color-accent)'
+                                      }}
+                                      onFocus={(e) => {
+                                        e.target.select();
+                                        e.target.style.outline = '3px solid var(--color-accent)';
+                                        e.target.style.outlineOffset = '0';
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.outline = 'none';
+                                      }}
+                                      onClick={(e) => e.target.select()}
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
                         </React.Fragment>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gradient-to-r from-primary to-blue-600 text-white font-bold">
-                  <td className="day-column day-header text-sm">Total</td>
-                  {group?.members.map((member, memberIndex) => {
-                    const types = getMemberMealTypes(member.userId);
-                    if (!types.length) return null;
-                    const isInactive = member.status === 'inactive';
-                    return (
-                      <React.Fragment key={`total-${member.userId}`}>
-                        {types.map((t, ti) => {
-                          let total = 0;
-                          Array.from({ length: daysInMonth }, (_, i) => i + 1).forEach(day => {
-                            if (getMealStatus(day, member.userId, t.key)) total += getMealCount(day, member.userId, t.key);
-                          });
-                          return (
-                            <td key={t.key} className={`text-center font-bold text-sm ${isInactive ? 'bg-gray-400 text-white' : t.footerClass} ${
-                              ti === types.length - 1 && memberIndex < group.members.length - 1 ? 'border-r-4 border-white/30' : ''
-                            }`}>{total}</td>
-                          );
-                        })}
-                      </React.Fragment>
-                    );
-                  })}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+
+            {/* Footer Totals */}
+            <tfoot>
+              <tr>
+                <td 
+                  className="font-bold text-sm text-base-content p-2 text-center"
+                  style={{
+                    position: 'sticky',
+                    bottom: 0,
+                    left: 0,
+                    zIndex: 40,
+                    backgroundColor: 'var(--meal-head)',
+                    borderTop: '2px solid var(--meal-lunch)',
+                    borderRight: '1px solid var(--meal-line)',
+                    boxShadow: 'var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), 2px 0 6px -4px rgb(0 0 0 / .25)'
+                  }}
+                >
+                  Total
+                </td>
+                {activeMembers.map((member, memberIdx) => {
+                  const userMealTypes = getUserMealTypes(member.userId);
+                  return (
+                  <React.Fragment key={`total-${member.userId}`}>
+                    {userMealTypes.map((mealType, typeIdx) => {
+                      let total = 0;
+                      Array.from({ length: daysInMonth }, (_, i) => i + 1).forEach(day => {
+                        if (getMealStatus(day, member.userId, mealType.key)) {
+                          total += getMealCount(day, member.userId, mealType.key);
+                        }
+                      });
+
+                      const isLastInMember = typeIdx === userMealTypes.length - 1;
+                      const isLastMember = memberIdx === activeMembers.length - 1;
+                      const isLastCol = isLastInMember && !isLastMember;
+                      
+                      // Get colors based on meal type
+                      const getMealColors = (key) => {
+                        if (key === 'breakfast') return { fill: 'var(--meal-breakfast)', content: 'var(--meal-breakfast-content)' };
+                        if (key === 'lunch') return { fill: 'var(--meal-lunch)', content: 'var(--meal-lunch-content)' };
+                        return { fill: 'var(--meal-dinner)', content: 'var(--meal-dinner-content)' };
+                      };
+                      const colors = getMealColors(mealType.key);
+
+                      return (
+                        <td
+                          key={mealType.key}
+                          className="text-center font-bold text-sm tabular-nums p-2"
+                          style={{
+                            position: 'sticky',
+                            bottom: 0,
+                            zIndex: 30,
+                            backgroundColor: colors.fill,
+                            color: colors.content,
+                            borderTop: '2px solid var(--meal-lunch)',
+                            borderRight: isLastCol ? '1px solid var(--meal-line)' : undefined,
+                          }}
+                        >
+                          {total}
+                        </td>
+                      );
+                    })}
+                  </React.Fragment>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
+      )}
     </div>
   );
 };
 
-export default MealSheet;
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(MealSheet);

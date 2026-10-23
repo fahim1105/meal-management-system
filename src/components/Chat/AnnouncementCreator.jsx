@@ -45,113 +45,166 @@ const AnnouncementCreator = ({ groupId, onClose }) => {
 
   return (
     <div className="modal modal-open">
-      <div className="modal-box w-11/12 max-w-2xl max-h-[95vh] bg-gradient-to-br from-base-100 to-base-200 shadow-2xl border border-warning/20 p-0 overflow-hidden">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-br from-base-100 to-base-200 px-4 sm:px-6 py-4 border-b border-base-300">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="bg-gradient-to-br from-warning to-orange-500 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg shrink-0">
-                <FaBullhorn className="text-white text-xl sm:text-2xl" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg sm:text-2xl text-base-content truncate">
-                  Create Announcement
-                </h3>
-                <p className="text-xs sm:text-sm text-base-content/60 line-clamp-2">
-                  Share important updates with your group
-                </p>
-              </div>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal Container - Desktop: centered, Mobile: bottom sheet */}
+      <div className="fixed inset-0 z-[70] flex items-end lg:items-center justify-center pointer-events-none">
+        <div 
+          className="pointer-events-auto w-full lg:w-auto lg:min-w-[560px] lg:max-w-[calc(100%-32px)] max-h-[92vh] lg:max-h-[90vh] flex flex-col
+                     bg-[var(--md-bg)] border-[1px] border-[var(--md-border)]
+                     rounded-t-[var(--md-radius-modal-mobile)] lg:rounded-[var(--md-radius-modal)]
+                     shadow-2xl overflow-hidden"
+        >
+          {/* Mobile Grab Handle */}
+          <div className="lg:hidden flex justify-center pt-3 pb-2 shrink-0">
+            <div className="w-10 h-1 bg-base-content/20 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 lg:px-6 py-4 border-b border-[var(--md-border)] shrink-0">
+            <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[var(--md-announcement-icon)] flex items-center justify-center shrink-0">
+              <FaBullhorn className="text-white text-lg lg:text-xl" />
             </div>
-            <button 
-              onClick={onClose} 
-              className="btn btn-sm btn-circle btn-ghost hover:bg-error/10 hover:text-error transition-all shrink-0"
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg lg:text-xl font-bold text-base-content">
+                Create Announcement
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-base-content/10 transition-colors shrink-0"
+              aria-label="Close"
             >
-              <FaTimes className="text-base sm:text-lg" />
+              <FaTimes className="text-base-content/70 text-base" />
             </button>
           </div>
-        </div>
 
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-80px)] px-4 sm:px-6 py-4">
-          <form onSubmit={handleCreate} className="space-y-4 sm:space-y-6">
-            {/* Message Input */}
-            <div className="form-control">
-              <label className="label px-0">
-                <span className="label-text font-semibold text-sm sm:text-base flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-warning animate-pulse"></span>
-                  Announcement Message
-                </span>
-                <span className="label-text-alt text-base-content/50 text-xs sm:text-sm">
+          {/* Scrollable Body */}
+          <form onSubmit={handleCreate} className="flex-1 overflow-y-auto px-5 lg:px-6 py-5 space-y-5">
+            {/* Message Field */}
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <label htmlFor="announcement-message" className="text-sm font-semibold text-[var(--md-label)]">
+                  Message
+                </label>
+                <span className="text-xs font-medium text-[var(--md-helper)]">
                   {content.length}/500
                 </span>
-              </label>
+              </div>
               <textarea
+                id="announcement-message"
                 value={content}
                 onChange={(e) => setContent(e.target.value.slice(0, 500))}
-                placeholder="Type your important announcement here... Make it clear and concise!"
-                className="textarea textarea-bordered h-32 sm:h-40 focus:outline-none focus:border-warning focus:ring-2 focus:ring-warning/20 bg-base-100 rounded-xl shadow-sm resize-none text-sm sm:text-base"
+                placeholder="Type your important announcement here..."
+                rows={5}
+                className="w-full px-4 py-3 text-sm lg:text-base bg-[var(--md-input-bg)] border border-[var(--md-input-border)] rounded-[var(--md-radius-field)]
+                           text-base-content placeholder:text-base-content/40
+                           focus:outline-none focus:border-[var(--md-input-border-focus)] focus:ring-2 focus:ring-[var(--md-input-ring)]
+                           resize-none transition-colors"
                 required
+                maxLength={500}
               />
-              <label className="label px-0">
-                <span className="label-text-alt text-base-content/50 text-xs">
-                  This will be highlighted for all members
-                </span>
-              </label>
+              <p className="text-xs text-[var(--md-helper)]">
+                This will be highlighted for all group members
+              </p>
             </div>
 
-            {/* Pin Option */}
-            <div className="form-control">
-              <label className="label cursor-pointer justify-start gap-3 sm:gap-4 p-3 sm:p-4 bg-base-200/50 rounded-xl hover:bg-base-200 transition-all border border-base-300">
+            {/* Pin Switch */}
+            <div className="space-y-2">
+              <label htmlFor="announcement-pin" className="text-sm font-semibold text-[var(--md-label)]">
+                Options
+              </label>
+              <label 
+                htmlFor="announcement-pin"
+                className="flex items-center gap-3 p-3.5 bg-[var(--md-preview-bg)] border border-[var(--md-preview-border)] rounded-[var(--md-radius-field)] cursor-pointer hover:bg-base-content/[0.06] transition-colors"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-base-content">
+                    <FaThumbtack className="text-[var(--md-announcement-icon)]" />
+                    <span>Pin to top</span>
+                  </div>
+                  <p className="text-xs text-[var(--md-helper)] mt-0.5">
+                    Keep visible at the top of chat
+                  </p>
+                </div>
                 <input
                   type="checkbox"
+                  id="announcement-pin"
                   checked={isPinned}
                   onChange={(e) => setIsPinned(e.target.checked)}
-                  className="checkbox checkbox-warning checkbox-sm sm:checkbox-lg"
+                  className="sr-only"
                 />
-                <div className="flex-1 min-w-0">
-                  <span className="label-text font-semibold text-sm sm:text-base flex items-center gap-2">
-                    <FaThumbtack className="text-warning shrink-0" />
-                    <span className="truncate">Pin this announcement</span>
-                  </span>
-                  <span className="label-text-alt text-base-content/60 block mt-1 text-xs sm:text-sm">
-                    Pinned announcements stay at the top
-                  </span>
+                <div className={`relative w-12 h-6 rounded-full transition-colors ${isPinned ? 'bg-[var(--md-announcement-icon)]' : 'bg-base-content/20'}`}>
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${isPinned ? 'translate-x-6' : 'translate-x-0'}`} />
                 </div>
               </label>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn btn-ghost hover:bg-base-200 w-full sm:w-auto"
-                disabled={creating}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn bg-gradient-to-r from-warning to-orange-500 border-none text-white shadow-lg hover:shadow-warning/50 hover:scale-105 transition-all gap-2 w-full sm:w-auto sm:flex-1"
-                disabled={!content.trim() || creating}
-              >
-                {creating ? (
-                  <>
-                    <span className="loading loading-spinner loading-sm"></span>
-                    <span className="hidden sm:inline">Posting...</span>
-                  </>
-                ) : (
-                  <>
-                    <FaBullhorn />
-                    Post Announcement
-                  </>
-                )}
-              </button>
+            {/* Preview Card */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[var(--md-label)]">
+                Preview
+              </label>
+              <div className="p-4 bg-[var(--md-preview-bg)] border border-[var(--md-preview-border)] rounded-[var(--md-radius-preview)]">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[var(--md-announcement-icon)] flex items-center justify-center shrink-0">
+                    <FaBullhorn className="text-white text-sm" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-base-content">
+                        {userData?.name || userData?.displayName || 'You'}
+                      </span>
+                      {isPinned && (
+                        <FaThumbtack className="text-[var(--md-announcement-icon)] text-xs" />
+                      )}
+                    </div>
+                    <p className="text-sm text-base-content/80 break-words">
+                      {content.trim() || 'Your announcement will appear here...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
+
+          {/* Footer */}
+          <div className="flex items-center gap-3 px-5 lg:px-6 py-4 border-t border-[var(--md-border)] shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={creating}
+              className="flex-1 lg:flex-initial lg:min-w-[100px] px-4 py-2.5 text-sm font-semibold text-base-content bg-base-content/[0.06] hover:bg-base-content/[0.12] rounded-[var(--md-radius-button)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              onClick={handleCreate}
+              disabled={!content.trim() || creating}
+              className="flex-1 lg:flex-[2] px-4 py-2.5 text-sm font-semibold text-white bg-[var(--md-announcement-btn)] hover:opacity-90 rounded-[var(--md-radius-button)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {creating ? (
+                <>
+                  <span className="loading loading-spinner loading-sm"></span>
+                  <span>Posting...</span>
+                </>
+              ) : (
+                <>
+                  <FaBullhorn />
+                  <span>Post Announcement</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
     </div>
   );
 };

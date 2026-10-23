@@ -1,32 +1,40 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { FaUtensils, FaChartBar, FaCoffee, FaHamburger, FaMoon, FaBan, FaChartPie, FaChartLine } from 'react-icons/fa';
+import axios from 'axios';
+import { FaUtensils, FaChartBar, FaCoffee, FaHamburger, FaMoon, FaBan, FaChartPie, FaChartLine, FaFilePdf, FaDownload, FaUserTie, FaSortAmountDown, FaCheck } from 'react-icons/fa';
 import burgerToast from '../components/BurgerToast';
 import LottieLoader from '../components/LottieLoader';
 import { queryKeys, fetchHistory } from '../lib/queries';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
+  ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 
 const MyHistory = () => {
   const { userData, getAuthHeaders } = useAuth();
-  const { theme } = useTheme();
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL;
+  const [exporting, setExporting] = useState(false);
+  const [sortBy, setSortBy] = useState('newest');
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
 
-  const isDark = theme === 'dark';
-  const axisColor = isDark ? '#9ca3af' : '#6b7280';
-  const gridColor = isDark ? '#374151' : '#e5e7eb';
-  const bgColor = isDark ? 'rgba(31, 41, 55, 0.5)' : 'rgba(255, 255, 255, 0.5)';
+  useEffect(() => {
+    const handler = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const { data: history = [], isLoading: loading } = useQuery({
     queryKey: queryKeys.history(),
     queryFn: () => fetchHistory(getAuthHeaders),
     enabled: !!userData?.groupId,
+    refetchInterval: 1000 * 10, // Auto-refresh every 10 seconds
     onError: () => burgerToast.error('Failed to load history'),
   });
 
@@ -34,13 +42,54 @@ const MyHistory = () => {
 
   const monthLabel = (m) => format(new Date(m + '-01'), 'MMM yyyy');
 
-  const activeMonths = [...history.filter(h => h.inRange)].sort((a, b) => {
-    if (a.isCurrentMonth) return -1;
-    if (b.isCurrentMonth) return 1;
-    return a.month.localeCompare(b.month);
-  });
+  const activeMonths = (() => {
+    const current = history.filter(h => h.inRange && h.isCurrentMonth);
+    const past    = history.filter(h => h.inRange && !h.isCurrentMonth);
+
+    const sortFns = {
+      newest:       (a, b) => b.month.localeCompare(a.month),
+      oldest:       (a, b) => a.month.localeCompare(b.month),
+      highBalance:  (a, b) => b.balance - a.balance,
+      lowBalance:   (a, b) => a.balance - b.balance,
+      highDeposit:  (a, b) => b.deposit - a.deposit,
+      highCost:     (a, b) => b.cost - a.cost,
+      mostMeals:    (a, b) => b.totalMeals - a.totalMeals,
+      highRate:     (a, b) => b.mealRate - a.mealRate,
+    };
+
+    return [...current, ...past.sort(sortFns[sortBy] ?? sortFns.newest)];
+  })();
   const gapMonths = history.filter(h => h.isGap);
-  const chartMonths = activeMonths.filter(h => !h.isCurrentMonth && h.hasData);
+  // chartMonths always chronological (oldest→newest) — independent of card sort order
+  const chartMonths = history
+    .filter(h => h.inRange && !h.isCurrentMonth && h.hasData)
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get(`${API_URL}/report/history-pdf`, {
+        headers,
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `meal-history-${Date.now()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      burgerToast.success('History PDF downloaded');
+    } catch (error) {
+      console.error('History PDF export error:', error);
+      burgerToast.error('Failed to export history PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Pie data — overall meal type distribution across all completed months
   const totalBreakfast = chartMonths.reduce((s, h) => s + h.breakfast, 0);
@@ -55,10 +104,10 @@ const MyHistory = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload?.length) {
       return (
-        <div className="bg-base-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border-2 border-primary/30 text-sm">
-          <p className="font-bold text-primary mb-2 text-base">{label}</p>
+        <div className="bg-base-200 border border-base-content/15 p-3 rounded-lg text-[13px] text-base-content shadow-lg">
+          <p className="font-semibold mb-1.5">{label}</p>
           {payload.map((e, i) => (
-            <p key={i} style={{ color: e.color }} className="font-semibold">
+            <p key={i} className="font-medium">
               {e.name}: {['Deposit', 'Cost', 'Balance'].includes(e.name) ? `৳${Number(e.value).toFixed(2)}` : e.value}
             </p>
           ))}
@@ -72,44 +121,50 @@ const MyHistory = () => {
     if (active && payload?.length) {
       const total = pieData.reduce((s, d) => s + d.value, 0);
       return (
-        <div className="bg-base-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border-2 border-primary/30">
-          <p style={{ color: payload[0].payload.fill }} className="font-bold text-lg mb-1">{payload[0].name}</p>
-          <p className="text-base-content font-semibold">{payload[0].value} meals</p>
-          <p className="text-base-content/60 text-sm">({((payload[0].value / total) * 100).toFixed(1)}%)</p>
+        <div className="bg-base-200 border border-base-content/15 p-3 rounded-lg text-[13px] text-base-content shadow-lg">
+          <p className="font-semibold mb-1">{payload[0].name}</p>
+          <p className="font-medium">{payload[0].value} meals</p>
+          <p className="text-base-content/70">({((payload[0].value / total) * 100).toFixed(1)}%)</p>
         </div>
       );
     }
     return null;
   };
 
-  const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    if (percent < 0.05) return null;
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight="bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
-
   if (loading) return <LottieLoader size={270} fullPage />;
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg mt-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-3 rounded-full">
-            <FaChartBar className="text-3xl text-white" />
+    <div className="container mx-auto px-3.5 lg:px-5 py-4 max-w-[1120px] space-y-[22px]" style={{ paddingBottom: 'calc(80px + 24px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* Page Header */}
+      <div className="bg-neutral rounded-[22px] p-[18px] lg:p-[24px_28px] shadow-lg flex flex-col lg:flex-row items-start lg:items-center gap-4" style={{ color: 'var(--hs-on-strong)' }}>
+        <div className="flex items-center gap-4 flex-1">
+          <div className="w-[50px] h-[50px] rounded-[15px] flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,.18)' }}>
+            <FaChartBar className="text-[24px]" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-white">My History</h1>
-            <p className="text-white/80 text-sm">Your personal meal & finance summary</p>
+            <h1 className="text-[23px] lg:text-[28px] font-[800] leading-tight tracking-tight">My History</h1>
+            <p className="text-sm mt-0.5" style={{ opacity: 0.9 }}>Your personal meal & finance summary</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          disabled={exporting || history.length === 0}
+          className="w-full lg:w-auto px-4 py-2.5 rounded-[11px] font-[700] text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-105"
+          style={{ 
+            background: '#D1EDD3',
+            color: '#3E5039',
+            border: '1.5px solid #D1EDD3'
+          }}
+        >
+          {exporting ? (
+            <span className="loading loading-spinner loading-sm" />
+          ) : (
+            <FaFilePdf className="text-base" />
+          )}
+          <FaDownload className="text-xs" />
+          <span>Export PDF</span>
+        </button>
       </div>
 
       {/* Empty state */}
@@ -125,191 +180,171 @@ const MyHistory = () => {
 
       {/* ── COMPARISON SECTION ── */}
       {chartMonths.length >= 1 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-primary flex items-center gap-2">
-            <FaChartPie /> Comparison
-          </h2>
+        <div className="space-y-[12px]">
+          <h2 className="text-[21px] font-[700] text-base-content">Comparison</h2>
 
-          {/* Row 1: Pie + Deposit Line — side by side on md+ */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Row 1: Pie + Deposit Area */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.25fr] gap-[14px]">
 
-            {/* Pie — overall meal distribution */}
+            {/* Overall Meal Distribution - Donut */}
             {pieData.length > 0 && (
-              <div className="card bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 shadow-2xl border border-purple-200/50 dark:border-purple-800/50 hover:shadow-purple-500/20 transition-all duration-300">
-                <div className="card-body p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-xl shadow-lg">
-                      <FaChartPie className="text-2xl text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-purple-700 dark:text-purple-400">Overall Meal Distribution</h3>
-                      <p className="text-xs text-base-content/60">All completed months combined</p>
-                    </div>
+              <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px_20px]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: 'var(--hs-tile)' }}>
+                    <FaChartPie className="text-base-content text-lg" />
                   </div>
-                  <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <defs>
-                          <linearGradient id="breakfastGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
-                            <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
-                          </linearGradient>
-                          <linearGradient id="lunchGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
-                            <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.8} />
-                          </linearGradient>
-                          <linearGradient id="dinnerGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                            <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
-                          </linearGradient>
-                        </defs>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          innerRadius={50}
-                          dataKey="value"
-                          labelLine={false}
-                          label={renderPieLabel}
-                          paddingAngle={3}
-                        >
-                          {pieData.map((entry, i) => (
-                            <Cell 
-                              key={i} 
-                              fill={`url(#${entry.name.toLowerCase()}Gradient)`}
-                              stroke="white"
-                              strokeWidth={3}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<PieTooltip />} />
-                        <Legend 
-                          wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
-                          iconType="circle"
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[17px] font-[700] text-base-content">Overall Meal Distribution</h3>
+                    <p className="text-[13px] text-base-content/70">All completed months combined</p>
                   </div>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={62}
+                      dataKey="value"
+                      paddingAngle={2}
+                      strokeWidth={0}
+                    >
+                      {pieData.map((entry) => {
+                        const fillColor = entry.name === 'Lunch' ? 'var(--hs-lunch)' : entry.name === 'Dinner' ? 'var(--hs-dinner)' : 'var(--hs-breakfast)';
+                        return <Cell key={entry.name} fill={fillColor} />;
+                      })}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  {pieData.map((entry) => {
+                    const fillColor = entry.name === 'Lunch' ? 'var(--hs-lunch)' : entry.name === 'Dinner' ? 'var(--hs-dinner)' : 'var(--hs-breakfast)';
+                    return (
+                      <div key={entry.name} className="flex items-center gap-1.5">
+                        <div className="w-[10px] h-[10px] rounded-[2px]" style={{ background: fillColor }} />
+                        <span className="text-[13px] text-base-content/70">{entry.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Deposit per month — Area chart with gradient */}
+            {/* Monthly Deposit - Area Chart */}
             {chartMonths.length >= 2 && (
-              <div className="card bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 shadow-2xl border border-emerald-200/50 dark:border-emerald-800/50 hover:shadow-emerald-500/20 transition-all duration-300">
-                <div className="card-body p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-3 rounded-xl shadow-lg">
-                      <FaChartLine className="text-2xl text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-400">Monthly Deposit</h3>
-                      <p className="text-xs text-base-content/60">How much you deposited each month</p>
-                    </div>
+              <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px_20px]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: 'var(--hs-tile)' }}>
+                    <FaChartLine className="text-base-content text-lg" />
                   </div>
-                  <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <AreaChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Deposit: h.deposit }))}>
-                        <defs>
-                          <linearGradient id="colorDeposit" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
-                        <XAxis 
-                          dataKey="name" 
-                          stroke={axisColor} 
-                          style={{ fontSize: '12px', fontWeight: '600' }}
-                        />
-                        <YAxis 
-                          stroke={axisColor} 
-                          style={{ fontSize: '12px', fontWeight: '600' }}
-                        />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 2 }} />
-                        <Area 
-                          type="monotone" 
-                          dataKey="Deposit" 
-                          stroke="#10b981" 
-                          strokeWidth={3}
-                          fillOpacity={1} 
-                          fill="url(#colorDeposit)"
-                          dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
-                          activeDot={{ r: 8, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[17px] font-[700] text-base-content">Monthly Deposit</h3>
+                    <p className="text-[13px] text-base-content/70">How much you deposited each month</p>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Deposit: h.deposit }))}>
+                    <defs>
+                      <linearGradient id="areaDeposit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--hs-lunch)" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="var(--hs-lunch)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="0" stroke="var(--hs-line)" horizontal={true} vertical={false} />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fill: 'var(--color-base-content)', opacity: 0.7, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'var(--color-base-content)', opacity: 0.7, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={false} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Deposit" 
+                      stroke="var(--hs-lunch)" 
+                      strokeWidth={2.5}
+                      fill="url(#areaDeposit)"
+                      dot={{ r: 5, fill: 'var(--color-base-200)', stroke: 'var(--hs-lunch)', strokeWidth: 2.5 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-[10px] h-[10px] rounded-[2px]" style={{ background: 'var(--hs-lunch)' }} />
+                    <span className="text-[13px] text-base-content/70">Deposit</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Row 2: Meal cost per month — Enhanced Bar chart */}
+          {/* Row 2: Monthly Meal Cost - Dual Axis Bar Chart */}
           {chartMonths.length >= 2 && (
-            <div className="card bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 shadow-2xl border border-orange-200/50 dark:border-orange-800/50 hover:shadow-orange-500/20 transition-all duration-300">
-              <div className="card-body p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-lg">
-                    <FaUtensils className="text-2xl text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-orange-700 dark:text-orange-400">Monthly Meal Cost</h3>
-                    <p className="text-xs text-base-content/60">How much your meals cost each month</p>
-                  </div>
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px_20px]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: 'var(--hs-tile)' }}>
+                  <FaUtensils className="text-base-content text-lg" />
                 </div>
-                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Cost: parseFloat(h.cost.toFixed(2)), Meals: h.totalMeals }))}>
-                      <defs>
-                        <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="#ea580c" stopOpacity={0.7} />
-                        </linearGradient>
-                        <linearGradient id="mealsGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.7} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke={axisColor} 
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <YAxis 
-                        yAxisId="left" 
-                        stroke={axisColor} 
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <YAxis 
-                        yAxisId="right" 
-                        orientation="right" 
-                        stroke={axisColor} 
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(249, 115, 22, 0.1)' }} />
-                      <Legend 
-                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
-                        iconType="circle"
-                      />
-                      <Bar 
-                        yAxisId="left" 
-                        dataKey="Cost" 
-                        fill="url(#costGradient)" 
-                        radius={[8, 8, 0, 0]}
-                        maxBarSize={60}
-                      />
-                      <Bar 
-                        yAxisId="right" 
-                        dataKey="Meals" 
-                        fill="url(#mealsGradient)" 
-                        radius={[8, 8, 0, 0]}
-                        maxBarSize={60}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[17px] font-[700] text-base-content">Monthly Meal Cost</h3>
+                  <p className="text-[13px] text-base-content/70">How much your meals cost each month</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartMonths.map(h => ({ name: monthLabel(h.month), Cost: parseFloat(h.cost.toFixed(2)), Meals: h.totalMeals }))}>
+                  <CartesianGrid strokeDasharray="0" stroke="var(--hs-line)" horizontal={true} vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: 'var(--color-base-content)', opacity: 0.7, fontSize: 11 }}
+                    axisLine={{ stroke: 'var(--hs-line)' }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    yAxisId="left" 
+                    tick={{ fill: 'var(--color-base-content)', opacity: 0.7, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right" 
+                    tick={{ fill: 'var(--color-base-content)', opacity: 0.7, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+                  <Bar 
+                    yAxisId="left" 
+                    dataKey="Cost" 
+                    fill="var(--hs-cost)" 
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={60}
+                  />
+                  <Bar 
+                    yAxisId="right" 
+                    dataKey="Meals" 
+                    fill="var(--hs-lunch)" 
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={60}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center justify-center gap-4 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-[2px]" style={{ background: 'var(--hs-cost)' }} />
+                  <span className="text-[13px] text-base-content/70">Cost</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-[2px]" style={{ background: 'var(--hs-lunch)' }} />
+                  <span className="text-[13px] text-base-content/70">Meals</span>
                 </div>
               </div>
             </div>
@@ -319,87 +354,231 @@ const MyHistory = () => {
 
       {/* ── MONTH CARDS ── */}
       {activeMonths.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-primary flex items-center gap-2">
-            <FaChartBar /> Monthly History
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeMonths.map(h => (
-              <div
-                key={h.month}
-                className={`card bg-base-100 shadow-xl border-t-4 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${
-                  h.isCurrentMonth ? 'border-t-orange-400' : 'border-t-primary'
-                }`}
-              >
-                <div className="card-body p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className={`text-lg font-bold ${h.isCurrentMonth ? 'text-orange-500' : 'text-primary'}`}>
+        <div className="space-y-[12px]">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-[21px] font-[700] text-base-content">Monthly History</h2>
+
+            {/* Sort Control */}
+            {(() => {
+              const sortOptions = [
+                { group: 'Date',      items: [
+                  { value: 'newest',      label: 'Newest First' },
+                  { value: 'oldest',      label: 'Oldest First' },
+                ]},
+                { group: 'Financial', items: [
+                  { value: 'highBalance', label: 'Highest Balance' },
+                  { value: 'lowBalance',  label: 'Lowest Balance' },
+                  { value: 'highDeposit', label: 'Highest Deposit' },
+                  { value: 'highCost',    label: 'Highest Cost' },
+                ]},
+                { group: 'Meal',      items: [
+                  { value: 'mostMeals',   label: 'Most Meals' },
+                  { value: 'highRate',    label: 'Highest Meal Rate' },
+                ]},
+              ];
+              const activeLabel = sortOptions.flatMap(g => g.items).find(o => o.value === sortBy)?.label ?? 'Sort';
+
+              return (
+                <div ref={sortRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen(v => !v)}
+                    className="flex items-center gap-2 px-[14px] py-[10px] rounded-[11px] text-sm font-semibold bg-base-200 border-[1.5px] text-base-content transition-all"
+                    style={{ 
+                      borderColor: 'var(--hs-line)',
+                      paddingRight: '36px'
+                    }}
+                    aria-label="Sort monthly history"
+                  >
+                    <FaSortAmountDown className="text-xs" />
+                    <span>{activeLabel}</span>
+                    <svg
+                      className={`absolute right-3 w-3 h-3 transition-transform ${sortOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {sortOpen && (
+                    <div className="absolute right-0 mt-2 w-52 rounded-xl bg-base-200 border border-base-content/15 shadow-xl z-50 overflow-hidden">
+                      {sortOptions.map((group, gi) => (
+                        <div key={group.group}>
+                          {gi > 0 && <div className="mx-3 h-px" style={{ background: 'var(--hs-line)' }} />}
+                          <p className="px-4 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-base-content/60">
+                            {group.group}
+                          </p>
+                          {group.items.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
+                              className={`w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-all ${
+                                sortBy === opt.value 
+                                  ? 'text-base-content font-semibold' 
+                                  : 'text-base-content/70'
+                              }`}
+                              style={{ 
+                                background: sortBy === opt.value ? 'var(--hs-tile)' : 'transparent'
+                              }}
+                            >
+                              <span>{opt.label}</span>
+                              {sortBy === opt.value && <FaCheck className="text-xs" />}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Month Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[14px]">
+            {activeMonths.map(h => {
+              const balanceColor = h.balance > 0 ? 'var(--hs-pos)' : h.balance < 0 ? 'var(--hs-neg)' : 'var(--color-base-content)';
+              
+              return (
+                <div
+                  key={h.month}
+                  className="bg-base-200 border rounded-[18px] p-[18px] flex flex-col gap-[14px]"
+                  style={{
+                    borderColor: h.isCurrentMonth ? 'var(--color-neutral)' : 'var(--hs-line)',
+                    borderWidth: h.isCurrentMonth ? '1.5px' : '1px'
+                  }}
+                >
+                  {/* Top Row: Month + Status */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[19px] font-[700] text-base-content">
                       {monthLabel(h.month)}
                     </h3>
                     {h.isCurrentMonth && (
-                      <span className="badge badge-warning badge-sm font-semibold">Running</span>
+                      <span 
+                        className="text-[12px] font-[700] rounded-full px-[10px] py-[2px]" 
+                        style={{ 
+                          background: 'var(--color-neutral)', 
+                          color: 'var(--hs-on-strong)' 
+                        }}
+                      >
+                        Running
+                      </span>
                     )}
                   </div>
 
-                  <div className="flex justify-between mb-3">
+                  {/* Manager Row */}
+                  <div 
+                    className="rounded-xl border px-3 py-2 flex items-center gap-2 text-[13.5px]"
+                    style={{ 
+                      background: 'var(--hs-alt)', 
+                      borderColor: 'var(--hs-line)' 
+                    }}
+                  >
+                    <FaUserTie className="text-base-content/70 shrink-0 text-sm" />
+                    <span className="text-base-content/70">Manager</span>
+                    <span className="ml-auto font-semibold text-base-content truncate">
+                      {h.managerName || '—'}
+                    </span>
+                  </div>
+
+                  {/* Meal Counts: 4 columns */}
+                  <div className="grid grid-cols-4 gap-[6px]">
+                    {/* Breakfast */}
                     <div className="flex flex-col items-center gap-1">
-                      <div className="bg-blue-100 p-2 rounded-full"><FaCoffee className="text-blue-600" /></div>
-                      <span className="text-xs text-base-content/60">Breakfast</span>
-                      <span className="font-bold text-blue-600">{h.breakfast}</span>
+                      <div 
+                        className="w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--hs-breakfast)' }}
+                      >
+                        <FaCoffee style={{ color: 'var(--hs-breakfast-on)' }} className="text-sm" />
+                      </div>
+                      <span className="text-[12px] text-base-content/70">Breakfast</span>
+                      <span className="text-[17px] font-[700] text-base-content tabular-nums">{h.breakfast}</span>
                     </div>
+
+                    {/* Lunch */}
                     <div className="flex flex-col items-center gap-1">
-                      <div className="bg-purple-100 p-2 rounded-full"><FaHamburger className="text-purple-600" /></div>
-                      <span className="text-xs text-base-content/60">Lunch</span>
-                      <span className="font-bold text-purple-600">{h.lunch}</span>
+                      <div 
+                        className="w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--hs-lunch)' }}
+                      >
+                        <FaHamburger style={{ color: 'var(--hs-lunch-on)' }} className="text-sm" />
+                      </div>
+                      <span className="text-[12px] text-base-content/70">Lunch</span>
+                      <span className="text-[17px] font-[700] text-base-content tabular-nums">{h.lunch}</span>
                     </div>
+
+                    {/* Dinner */}
                     <div className="flex flex-col items-center gap-1">
-                      <div className="bg-green-100 p-2 rounded-full"><FaMoon className="text-green-600" /></div>
-                      <span className="text-xs text-base-content/60">Dinner</span>
-                      <span className="font-bold text-green-600">{h.dinner}</span>
+                      <div 
+                        className="w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--hs-dinner)' }}
+                      >
+                        <FaMoon style={{ color: 'var(--hs-dinner-on)' }} className="text-sm" />
+                      </div>
+                      <span className="text-[12px] text-base-content/70">Dinner</span>
+                      <span className="text-[17px] font-[700] text-base-content tabular-nums">{h.dinner}</span>
                     </div>
+
+                    {/* Total */}
                     <div className="flex flex-col items-center gap-1">
-                      <div className="bg-primary/10 p-2 rounded-full"><FaUtensils className="text-primary" /></div>
-                      <span className="text-xs text-base-content/60">Total</span>
-                      <span className="font-bold text-primary">{h.totalMeals}</span>
+                      <div 
+                        className="w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--hs-tile)' }}
+                      >
+                        <FaUtensils className="text-base-content text-sm" />
+                      </div>
+                      <span className="text-[12px] text-base-content/70">Total</span>
+                      <span className="text-[17px] font-[700] text-base-content tabular-nums">{h.totalMeals}</span>
                     </div>
                   </div>
 
-                  <div className="divider my-1"></div>
-
-                  <div className="space-y-1 text-sm">
+                  {/* Finance Rows */}
+                  <div className="space-y-1 text-[14px]" style={{ borderTop: '1px solid var(--hs-line)', paddingTop: '10px' }}>
                     <div className="flex justify-between">
-                      <span className="text-base-content/60">Meal Rate</span>
-                      <span className="font-semibold">৳{h.mealRate.toFixed(2)}</span>
+                      <span className="text-base-content/70">Meal Rate</span>
+                      <span className="font-semibold text-base-content tabular-nums">৳{h.mealRate.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-base-content/60">Deposit</span>
-                      <span className="font-semibold text-green-600">৳{h.deposit.toFixed(2)}</span>
+                      <span className="text-base-content/70">Deposit</span>
+                      <span className="font-semibold text-base-content tabular-nums">৳{h.deposit.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-base-content/60">Cost</span>
-                      <span className="font-semibold text-orange-500">৳{h.cost.toFixed(2)}</span>
+                      <span className="text-base-content/70">Cost</span>
+                      <span className="font-semibold text-base-content tabular-nums">৳{h.cost.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between border-t border-base-300 pt-1 mt-1">
-                      <span className="font-bold">Balance</span>
-                      <span className={`font-bold text-base ${h.balance >= 0 ? 'text-success' : 'text-error'}`}>
+                    <div 
+                      className="flex justify-between text-[16px]" 
+                      style={{ 
+                        borderTop: '1px solid var(--hs-line)', 
+                        marginTop: '4px', 
+                        paddingTop: '8px' 
+                      }}
+                    >
+                      <span className="font-[700]">Balance</span>
+                      <span className="font-[800] tabular-nums" style={{ color: balanceColor }}>
                         ৳{h.balance.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
+                  {/* Running Month Note */}
                   {h.isCurrentMonth && (
-                    <p className="text-xs text-orange-400/80 mt-2 text-center">* Final figures after month ends</p>
+                    <p className="text-[12.5px] text-base-content/70 flex items-center gap-1.5">
+                      <FaBan className="text-xs shrink-0" />
+                      <span>* Final figures after month ends</span>
+                    </p>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Gap months notice */}
       {gapMonths.length > 0 && (
-        <div className="alert bg-base-200 border border-base-300">
+        <div className="alert bg-base-200 border border-base-content/15">
           <FaBan className="text-base-content/40 shrink-0" />
           <span className="text-sm text-base-content/60">
             Not in group during: {gapMonths.map(h => monthLabel(h.month)).join(', ')}

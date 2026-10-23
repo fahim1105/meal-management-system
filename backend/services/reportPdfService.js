@@ -103,7 +103,11 @@ export function renderMonthlyReportPdf(doc, { group, month, finance, approvedFin
 
   const managerMember = group.members.find((m) => m.userId === group.managerId);
   const managerName = managerMember?.name || 'Manager';
-  const getIssuedByName = (fine) => fine.requestedByName || managerName;
+  const getIssuedByName = (fine) => {
+    const name = fine.requestedByName || managerName;
+    if (fine.requestedByUserId === group.managerId) return `${name} (Manager)`;
+    return name;
+  };
 
   doc.rect(0, 0, 595, 100).fill('#3b82f6');
   doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold')
@@ -113,7 +117,7 @@ export function renderMonthlyReportPdf(doc, { group, month, finance, approvedFin
   doc.fillColor('#000000').moveDown(3);
 
   const infoY = 120;
-  doc.rect(50, infoY, 495, 60).stroke('#3b82f6');
+  doc.rect(50, infoY, 495, 75).stroke('#3b82f6');
   doc.fontSize(11).font('Helvetica-Bold');
   doc.text('Group Name:', 60, infoY + 10);
   doc.font('Helvetica').text(group.name, 150, infoY + 10);
@@ -123,8 +127,10 @@ export function renderMonthlyReportPdf(doc, { group, month, finance, approvedFin
   doc.font('Helvetica').text(month, 150, infoY + 30);
   doc.font('Helvetica-Bold').text('Generated:', 350, infoY + 30);
   doc.font('Helvetica').text(formatDate(new Date()), 430, infoY + 30);
+  doc.font('Helvetica-Bold').text('Manager:', 60, infoY + 50);
+  doc.font('Helvetica').text(managerName, 150, infoY + 50);
 
-  const summaryY = 200;
+  const summaryY = 215;
   doc.fontSize(14).font('Helvetica-Bold').fillColor('#3b82f6').text('FINANCIAL OVERVIEW', 50, summaryY);
   doc.fillColor('#000000');
   doc.rect(50, summaryY + 25, 495, 100).stroke('#e5e7eb');

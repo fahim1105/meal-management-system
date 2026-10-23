@@ -1,5 +1,98 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+
+@plugin "daisyui/theme" {
+  name: "light";
+  default: true;
+  --color-primary: #89A482;
+  --color-primary-content: #54634d;
+  --color-secondary: #5C7057;
+  --color-secondary-content: #c5e8d5;
+  --color-accent: #ACC5A6;
+  --color-accent-content: #54634d;
+  --color-neutral: #5C7057;
+  --color-neutral-content: #D6BD98;
+  --color-base-100: #f0f5f0;
+  --color-base-200: #e4eee4;
+  --color-base-300: #89A482;
+  --color-base-content: #3d4f38;
+  --color-info: #5C7057;
+  --color-info-content: #c5e8d5;
+  --color-success: #5C7057;
+  --color-success-content: #c5e8d5;
+  --color-warning: #D6BD98;
+  --color-warning-content: #54634d;
+  --color-error: #a0615a;
+  --color-error-content: #c5e8d5;
+}
+
+@plugin "daisyui/theme" {
+  name: "dark";
+  prefersdark: true;
+  --color-primary: #5C7057;
+  --color-primary-content: #D6BD98;
+  --color-secondary: #89A482;
+  --color-secondary-content: #242b28;
+  --color-accent: #D1EDD3;
+  --color-accent-content: #242b28;
+  --color-neutral: #5C7057;
+  --color-neutral-content: #D6BD98;
+  --color-base-100: #242b28;
+  --color-base-200: #2d3833;
+  --color-base-300: #3a4a43;
+  --color-base-content: #D6BD98;
+  --color-info: #89A482;
+  --color-info-content: #242b28;
+  --color-success: #89A482;
+  --color-success-content: #242b28;
+  --color-warning: #D6BD98;
+  --color-warning-content: #242b28;
+  --color-error: #c97a73;
+  --color-error-content: #242b28;
+}
+
+/* Meal Sheet colors: every value is derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --meal-breakfast: #ACC5A6;                          /* lightest green (accent color) */
+  --meal-breakfast-content: #2d3833;                  /* dark text on light green */
+  --meal-lunch: #89A482;                              /* medium sage green */
+  --meal-lunch-content: #1F2A1D;                      /* dark text on sage */
+  --meal-dinner: var(--color-neutral);                /* darkest green #5C7057 */
+  --meal-dinner-content: #F0F5F0;                     /* white text on dark green */
+  --meal-guest: color-mix(in oklab, var(--color-neutral) 55%, black);  /* count 2+ */
+  --meal-guest-content: #D1EDD3;
+  --meal-head: var(--color-base-200);                 /* opaque header/footer background */
+  --meal-daycell: color-mix(in oklab, var(--color-base-200) 65%, var(--color-base-100));
+  --meal-breakfast-tint: color-mix(in oklab, var(--meal-breakfast) 48%, var(--color-base-100));  /* more saturated */
+  --meal-lunch-tint: color-mix(in oklab, var(--meal-lunch) 52%, var(--color-base-100));          /* more saturated */
+  --meal-dinner-tint: color-mix(in oklab, var(--color-neutral) 38%, var(--color-base-100));      /* more saturated */
+  --meal-row-alt: color-mix(in oklab, var(--color-base-100) 60%, var(--color-base-200));
+  --meal-today: color-mix(in oklab, var(--color-warning) 35%, var(--color-base-100));
+  --meal-cell-border: color-mix(in oklab, var(--color-base-content) 38%, transparent);
+  --meal-line: color-mix(in oklab, var(--color-base-content) 16%, transparent);
+}
+
+[data-theme="dark"] {
+  --meal-daycell: var(--color-base-200);
+  --meal-breakfast-tint: color-mix(in oklab, var(--meal-breakfast) 28%, var(--color-base-200));
+  --meal-lunch-tint: color-mix(in oklab, var(--meal-lunch) 22%, var(--color-base-200));
+  --meal-dinner-tint: color-mix(in oklab, var(--color-neutral) 12%, var(--color-base-100));
+  --meal-row-alt: color-mix(in oklab, var(--color-base-100) 50%, var(--color-base-200));
+  --meal-today: color-mix(in oklab, var(--color-warning) 22%, var(--color-base-200));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --meal-daycell: var(--color-base-200);
+    --meal-breakfast-tint: color-mix(in oklab, var(--meal-breakfast) 28%, var(--color-base-200));
+    --meal-lunch-tint: color-mix(in oklab, var(--meal-lunch) 22%, var(--color-base-200));
+    --meal-dinner-tint: color-mix(in oklab, var(--color-neutral) 12%, var(--color-base-100));
+    --meal-row-alt: color-mix(in oklab, var(--color-base-100) 50%, var(--color-base-200));
+    --meal-today: color-mix(in oklab, var(--color-warning) 22%, var(--color-base-200));
+  }
+}
 
 /* Premium Custom Styles */
 @layer base {
@@ -13,6 +106,8 @@
   body {
     @apply antialiased;
     overflow-x: hidden;
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
   }
   
   html {
@@ -43,9 +138,8 @@
     @apply border-2 focus:border-primary focus:outline-none;
   }
   
-  /* Premium Gradients */
   .gradient-primary {
-    @apply bg-gradient-to-r from-primary to-blue-600;
+    @apply bg-primary;
   }
   
   /* Chat Animations */
@@ -113,16 +207,15 @@
     .modal-open {
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: none;
-      touch-action: none;
     }
   }
   
   .gradient-secondary {
-    @apply bg-gradient-to-r from-secondary to-purple-600;
+    @apply bg-secondary;
   }
   
   .gradient-accent {
-    @apply bg-gradient-to-r from-accent to-green-600;
+    @apply bg-accent;
   }
   
   /* Premium Glass Effect */
@@ -207,153 +300,11 @@
   }
   
   .table thead {
-    @apply bg-gradient-to-r from-primary to-blue-600 text-white;
+    @apply bg-primary text-primary-content;
   }
   
   .table tbody tr {
     @apply hover:bg-primary/5 transition-colors;
-  }
-  
-  /* Custom Meal Table with Sticky Day Column */
-  .meal-table-wrapper {
-    overflow-x: auto;
-    overflow-y: visible;
-    position: relative;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .meal-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.75rem;
-    line-height: 1rem;
-    position: relative;
-  }
-  
-  .meal-table thead {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  
-  .meal-table th,
-  .meal-table td {
-    padding: 0.25rem;
-    text-align: center;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    background-clip: padding-box;
-  }
-  
-  /* Meal type column backgrounds */
-  .meal-table tbody tr td:not(.day-cell) {
-    background-clip: padding-box;
-  }
-  
-  /* Ensure background colors show properly */
-  .meal-table tbody tr td.bg-blue-50\/50 {
-    background-color: rgba(239, 246, 255, 0.5) !important;
-  }
-  
-  .meal-table tbody tr td.bg-purple-50\/50 {
-    background-color: rgba(250, 245, 255, 0.5) !important;
-  }
-  
-  .meal-table tbody tr td.bg-green-50\/50 {
-    background-color: rgba(240, 253, 244, 0.5) !important;
-  }
-  
-  .meal-table tbody tr td.bg-gray-100\/50 {
-    background-color: rgba(243, 244, 246, 0.5) !important;
-  }
-  
-  /* Dark mode meal backgrounds */
-  [data-theme="dark"] .meal-table tbody tr td.bg-blue-50\/50 {
-    background-color: rgba(30, 58, 138, 0.2) !important;
-  }
-  
-  [data-theme="dark"] .meal-table tbody tr td.bg-purple-50\/50 {
-    background-color: rgba(88, 28, 135, 0.2) !important;
-  }
-  
-  [data-theme="dark"] .meal-table tbody tr td.bg-green-50\/50 {
-    background-color: rgba(20, 83, 45, 0.2) !important;
-  }
-  
-  [data-theme="dark"] .meal-table tbody tr td.bg-gray-100\/50 {
-    background-color: rgba(75, 85, 99, 0.3) !important;
-  }
-  
-  /* Hover effect for rows - but preserve changed cell styling */
-  .meal-table tbody tr:hover td:not(.day-cell):not(.bg-yellow-200) {
-    filter: brightness(0.98);
-  }
-  
-  [data-theme="dark"] .meal-table tbody tr:hover td:not(.day-cell):not(.bg-yellow-200) {
-    filter: brightness(1.1);
-  }
-  
-  /* Ensure changed cells keep their yellow background and ring on hover */
-  .meal-table tbody tr:hover td.bg-yellow-200 {
-    background-color: rgb(254 240 138) !important;
-  }
-  
-  /* Day Column - Always Sticky */
-  .day-column {
-    position: sticky !important;
-    left: 0 !important;
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
-  }
-  
-  .day-header {
-    background: linear-gradient(to bottom right, #3b82f6, #2563eb) !important;
-    color: white !important;
-    font-weight: bold;
-    font-size: 1rem;
-    z-index: 31 !important;
-    box-shadow: 4px 0 8px rgba(0, 0, 0, 0.15);
-    border-right: 4px solid rgba(255, 255, 255, 0.2) !important;
-  }
-  
-  .day-subheader {
-    background: #dbeafe !important;
-    font-weight: bold;
-    z-index: 31 !important;
-    box-shadow: 4px 0 8px rgba(0, 0, 0, 0.1);
-    border-right: 4px solid rgba(59, 130, 246, 0.3) !important;
-  }
-  
-  .day-cell {
-    background: #dbeafe !important;
-    color: #3b82f6 !important;
-    font-weight: bold;
-    z-index: 20 !important;
-    box-shadow: 4px 0 6px rgba(0, 0, 0, 0.1);
-    border-right: 4px solid rgba(59, 130, 246, 0.3) !important;
-  }
-  
-  /* Ensure Day column stays on top with solid background */
-  .meal-table tbody tr:hover .day-cell {
-    background: #bfdbfe !important;
-  }
-  
-  /* Dark mode support for Day column */
-  [data-theme="dark"] .day-header {
-    background: linear-gradient(to bottom right, #60a5fa, #3b82f6) !important;
-  }
-  
-  [data-theme="dark"] .day-subheader {
-    background: #1e3a8a !important;
-  }
-  
-  [data-theme="dark"] .day-cell {
-    background: #1e3a8a !important;
-    color: #60a5fa !important;
-  }
-  
-  [data-theme="dark"] .meal-table tbody tr:hover .day-cell {
-    background: #1e40af !important;
   }
   
   /* Responsive Table */
@@ -373,6 +324,23 @@
   /* Premium Alert Styles */
   .alert {
     @apply rounded-xl shadow-md border-l-4;
+  }
+  
+  /* Focus Ring Styles */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
   }
   
   /* Responsive Text */
@@ -488,9 +456,9 @@ body {
   to   { clip-path: var(--vt-clip-to); }
 }
 
-/* Disable element-level transitions during view transition to prevent jank */
-::view-transition-old(root) *,
-::view-transition-new(root) * {
+/* Suppress ALL element transitions during view transition to prevent color flash */
+:root[data-transitioning] *,
+:root.theme-switching * {
   transition: none !important;
   animation: none !important;
 }
@@ -736,3 +704,483 @@ body {
     will-change: auto;
   }
 }
+
+
+/* Meal Sheet month grid: header rows act as ONE sticky block */
+[aria-label="Monthly meal grid"] table, .meal-table { border-collapse: separate; border-spacing: 0; }
+[aria-label="Monthly meal grid"] thead, .meal-table thead { position: sticky; top: 0; z-index: 30; }
+[aria-label="Monthly meal grid"] thead th, .meal-table thead th { top: auto !important; }
+
+/* Finance page colors: derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --fin-on-strong: #F0F5F0;                       /* text on neutral fills */
+  --fin-pos: #3F6339;                              /* positive balance text/bars */
+  --fin-neg: #8E4A43;                              /* negative balance text/bars */
+  --fin-c1: #5C7057;                               /* chart series 1 (deposit, own) */
+  --fin-c2: #B08D57;                               /* chart series 2 (cost, guest) */
+  --fin-s1: #5C7057; --fin-s2: #89A482; --fin-s3: #B08D57; --fin-s4: #ACC5A6; /* donut slices */
+  --fin-tile: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --fin-head: color-mix(in oklab, var(--color-neutral) 12%, var(--color-base-200));
+  --fin-alt:  color-mix(in oklab, var(--color-base-100) 55%, var(--color-base-200));
+  --fin-guest: color-mix(in oklab, var(--color-warning) 40%, var(--color-base-200));
+  --fin-line: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+}
+
+[data-theme="dark"] {
+  --fin-pos: #9BC794; --fin-neg: #E09A93;
+  --fin-c1: #89A482;  --fin-c2: #D6BD98;
+  --fin-s1: #89A482; --fin-s2: #ACC5A6; --fin-s3: #D6BD98; --fin-s4: #5C7057;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --fin-pos: #9BC794; --fin-neg: #E09A93;
+    --fin-c1: #89A482;  --fin-c2: #D6BD98;
+    --fin-s1: #89A482; --fin-s2: #ACC5A6; --fin-s3: #D6BD98; --fin-s4: #5C7057;
+  }
+}
+
+/* Finance KPI grid: responsive columns */
+.finance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* Hero card spans 2 columns on mobile/tablet */
+.finance-kpi-grid > :first-child {
+  grid-column: 1 / 3;
+}
+
+/* Desktop: hero takes 1.5x space, others equal */
+@media (min-width: 900px) {
+  .finance-kpi-grid {
+    grid-template-columns: 1.5fr repeat(4, 1fr);
+  }
+  .finance-kpi-grid > :first-child {
+    grid-column: 1 / 2;
+  }
+}
+
+/* Finance SweetAlert Custom Styling */
+.swal-finance-popup {
+  border-radius: 18px !important;
+  border: 1px solid var(--fin-line) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-finance-title {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-finance-text {
+  font-size: 0.95rem !important;
+  opacity: 0.75 !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.swal-finance-icon {
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-finance-confirm {
+  background: var(--fin-neg) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-finance-confirm:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-finance-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid var(--fin-line) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-finance-cancel:hover {
+  background: var(--fin-tile) !important;
+}
+
+.swal2-actions {
+  gap: 0.75rem !important;
+  margin-top: 1.5rem !important;
+}
+
+/* Bazar page colors: derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --bz-on-strong: #F0F5F0;                         /* text on neutral fills */
+  --bz-pos: #3F6339;                                /* "done" text */
+  --bz-neg: #8E4A43;                                /* delete button */
+  --bz-tile: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --bz-alt:  color-mix(in oklab, var(--color-base-100) 55%, var(--color-base-200));
+  --bz-you:  color-mix(in oklab, var(--color-neutral) 11%, var(--color-base-100));
+  --bz-line: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  --bz-done: var(--color-accent);                   /* glance cells: done */
+}
+
+[data-theme="dark"] { --bz-pos: #9BC794; --bz-neg: #E09A93; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) { --bz-pos: #9BC794; --bz-neg: #E09A93; }
+}
+
+/* Bazar SweetAlert Custom Styling */
+.swal-bazar-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--bz-line) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-bazar-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-bazar-text {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+  opacity: 0.75 !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.swal-bazar-icon {
+  border-color: var(--bz-neg) !important;
+  color: var(--bz-neg) !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-bazar-confirm {
+  background: var(--bz-neg) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-bazar-confirm:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-bazar-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid var(--bz-line) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-bazar-cancel:hover {
+  background: var(--bz-tile) !important;
+}
+
+/* Account/Profile SweetAlert Custom Styling (Leave Group, Delete Group) */
+.swal-account-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 18px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-account-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-account-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+}
+
+.swal-account-icon-warning {
+  border-color: var(--color-error) !important;
+  color: var(--color-error) !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-account-icon-success {
+  border-color: var(--color-success) !important;
+  color: var(--color-success) !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-account-icon-error {
+  border-color: var(--color-error) !important;
+  color: var(--color-error) !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-account-confirm-danger {
+  background: var(--color-error) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-account-confirm-danger:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-account-confirm-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-primary-content) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-account-confirm-primary:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-account-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-account-cancel:hover {
+  background: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200)) !important;
+}
+
+/* Fine/Jorimana page colors: derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --fine-primary: #8E4A43;                           /* main fine color (muted red) */
+  --fine-on-strong: #F0F5F0;                         /* text on fine-primary fills */
+  --fine-light: color-mix(in oklab, #8E4A43 25%, var(--color-base-100));
+  --fine-tile: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --fine-alt: color-mix(in oklab, var(--color-base-100) 55%, var(--color-base-200));
+  --fine-line: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+}
+
+[data-theme="dark"] {
+  --fine-primary: #E09A93;                           /* lighter red for dark mode */
+  --fine-light: color-mix(in oklab, #E09A93 18%, var(--color-base-200));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --fine-primary: #E09A93;
+    --fine-light: color-mix(in oklab, #E09A93 18%, var(--color-base-200));
+  }
+}
+
+/* Fine SweetAlert Custom Styling */
+.swal-fine-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--fine-line) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-fine-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-fine-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+}
+
+.swal-fine-icon {
+  border-color: var(--fine-primary) !important;
+  color: var(--fine-primary) !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+.swal-fine-confirm {
+  background: var(--fine-primary) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-fine-confirm:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-fine-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid var(--fine-line) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-fine-cancel:hover {
+  background: var(--fine-tile) !important;
+}
+
+/* App shell colors */
+:root, [data-theme="light"] {
+  --shell-on-strong: #F0F5F0;   /* text on bg-neutral */
+  --shell-pill-bg: #D1EDD3;     /* active nav pill / filled button on neutral */
+  --shell-pill-text: #3E5039;
+  --shell-tile: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --shell-neg: #8E4A43;
+  --shell-pos: #3F6339;
+}
+
+[data-theme="dark"] { --shell-neg: #E09A93; --shell-pos: #9BC794; }
+
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --shell-neg: #E09A93; --shell-pos: #9BC794; } }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Modal Design System Variables (Announcement & Poll)
+   ────────────────────────────────────────────────────────────────────────── */
+:root, [data-theme="light"], [data-theme="dark"] {
+  --md-bg: var(--color-base-100);
+  --md-border: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  --md-radius-modal: 22px;
+  --md-radius-modal-mobile: 24px;
+  --md-radius-field: 14px;
+  --md-radius-button: 12px;
+  --md-radius-preview: 16px;
+  --md-label: color-mix(in oklab, var(--color-base-content) 90%, transparent);
+  --md-helper: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  --md-input-bg: var(--color-base-100);
+  --md-input-border: color-mix(in oklab, var(--color-base-content) 20%, transparent);
+  --md-input-border-focus: var(--color-primary);
+  --md-input-ring: color-mix(in oklab, var(--color-primary) 15%, transparent);
+  --md-preview-bg: color-mix(in oklab, var(--color-base-content) 4%, transparent);
+  --md-preview-border: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  --md-announcement-icon: var(--color-warning);
+  --md-announcement-btn: var(--color-warning);
+  --md-poll-icon: var(--color-info);
+  --md-poll-btn: var(--color-info);
+}
+
+/* My History colors: derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --hs-on-strong: #F0F5F0;                       /* text on bg-neutral */
+  --hs-lunch: #5C7057;  --hs-lunch-on: #FFFFFF;   /* lunch: chart series and meal icon */
+  --hs-dinner: #89A482; --hs-dinner-on: #1F2A1D;  /* dinner */
+  --hs-breakfast: #D6BD98; --hs-breakfast-on: #3E3320; /* breakfast (warning tan) */
+  --hs-cost: #B08D57;                            /* cost series */
+  --hs-pos: #3F6339;  --hs-neg: #8E4A43;         /* balance text/bars */
+  --hs-tile: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --hs-alt:  color-mix(in oklab, var(--color-base-100) 55%, var(--color-base-200));
+  --hs-line: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+}
+
+[data-theme="dark"] {
+  --hs-lunch: #79946F; --hs-lunch-on: #142014;
+  --hs-dinner: #B7CFB1;
+  --hs-cost: #D6BD98;
+  --hs-pos: #9BC794; --hs-neg: #E09A93;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --hs-lunch: #79946F; --hs-lunch-on: #142014; --hs-dinner: #B7CFB1;
+    --hs-cost: #D6BD98; --hs-pos: #9BC794; --hs-neg: #E09A93;
+  }
+}
+
+/* Admin pages colors: derived from the active DaisyUI theme */
+:root, [data-theme="light"] {
+  --ad-on-strong: #F0F5F0;                          /* text on bg-neutral */
+  --ad-neg: #8E4A43;                                /* reject/delete, errors */
+  --ad-pos: #3F6339;
+  --ad-tile:  color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200));
+  --ad-field: color-mix(in oklab, var(--color-base-100) 60%, var(--color-base-200));
+  --ad-alt:   color-mix(in oklab, var(--color-base-100) 55%, var(--color-base-200));
+  --ad-line:  color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  --ad-breakfast: #D6BD98; --ad-breakfast-on: #3E3320;  /* meal chips */
+  --ad-lunch: #5C7057;     --ad-lunch-on: #FFFFFF;
+  --ad-dinner: #89A482;    --ad-dinner-on: #1F2A1D;
+}
+
+[data-theme="dark"] { --ad-neg: #E09A93; --ad-pos: #9BC794; --ad-lunch: #79946F; --ad-lunch-on: #142014; --ad-dinner: #B7CFB1; }
+
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --ad-neg: #E09A93; --ad-pos: #9BC794; --ad-lunch: #79946F; --ad-lunch-on: #142014; --ad-dinner: #B7CFB1; } }
+
+/* native date/month/select pickers must be readable in dark */
+[data-theme="dark"] input, [data-theme="dark"] select { color-scheme: dark; }
+[data-theme="light"] input, [data-theme="light"] select { color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) input, :root:not([data-theme]) select { color-scheme: dark; } }

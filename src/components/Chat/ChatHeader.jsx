@@ -1,6 +1,6 @@
-import { FaComments, FaUsers, FaCircle } from 'react-icons/fa';
+import { FaComments } from 'react-icons/fa';
 
-const ChatHeader = ({ onlineCount = 0 }) => {
+const ChatHeader = () => {
   return (
     <div className="relative overflow-hidden h-[88px]">
       {/* Animated Background */}
@@ -29,18 +29,7 @@ const ChatHeader = ({ onlineCount = 0 }) => {
             </div>
           </div>
 
-          {/* Right Side - Online Count (Fixed width to prevent layout shift) */}
-          <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/30 shadow-lg w-[80px] justify-center shrink-0 ml-2">
-            <div className="relative">
-              <FaUsers className="text-white text-lg drop-shadow" />
-              {onlineCount > 0 && (
-                <FaCircle className="absolute -top-0.5 -right-0.5 text-green-400 text-[8px] animate-pulse" />
-              )}
-            </div>
-            <span className="text-white font-bold text-xl drop-shadow-md">
-              {onlineCount}
-            </span>
-          </div>
+          {/* Right Side - removed online count */}
         </div>
       </div>
 

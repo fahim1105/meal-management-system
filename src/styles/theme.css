@@ -1,0 +1,86 @@
+/* ─────────────────────────────────────────────
+   Mess Manager – Design Tokens
+   Light: secondary #89A482, bg #c5e8d5, text #54634d
+   Dark:  primary #5C7057, bg #242b28, text #D6BD98
+   ───────────────────────────────────────────── */
+
+:root {
+  --color-primary:   #5C7057;
+  --color-secondary: #89A482;
+  --color-icon:      #ACC5A6;
+  --color-hero:      #5C7057;
+  --color-nav:       #5C7057;
+
+  --bg:           #f0f5f0;
+  --surface:      #e4eee4;
+  --text:         #3d4f38;
+  --muted:        #5a6e54;
+  --line:         #89A482;
+  --deep:         #5C7057;
+  --on-primary:   #c5e8d5;
+  --on-nav:       #D6BD98;
+
+  --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-body:    'Figtree', system-ui, sans-serif;
+
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  18px;
+  --radius-xl:  24px;
+}
+
+:root[data-theme="dark"] {
+  --color-primary:   #5C7057;
+  --color-secondary: #89A482;
+  --color-icon:      #D1EDD3;
+  --color-hero:      #89A482;
+  --color-nav:       #5C7057;
+
+  --bg:         #242b28;
+  --surface:    #2d3833;
+  --text:       #D6BD98;
+  --muted:      #c4b08a;
+  --line:       #5C7057;
+  --deep:       #89A482;
+  --on-primary: #D6BD98;
+  --on-nav:     #D6BD98;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-primary:   #5C7057;
+    --color-secondary: #89A482;
+    --color-icon:      #D1EDD3;
+    --color-hero:      #89A482;
+    --color-nav:       #5C7057;
+
+    --bg:         #242b28;
+    --surface:    #2d3833;
+    --text:       #D6BD98;
+    --muted:      #c4b08a;
+    --line:       #5C7057;
+    --deep:       #89A482;
+    --on-primary: #D6BD98;
+    --on-nav:     #D6BD98;
+  }
+}
+
+.hg-bg        { background-color: var(--bg); }
+.hg-surface   { background-color: var(--surface); }
+.hg-accent-2  { background-color: var(--color-icon); }
+.hg-primary   { background-color: var(--color-primary); }
+.hg-deep      { background-color: var(--deep); }
+.hg-hero      { background-color: var(--color-hero); }
+
+.hg-text      { color: var(--text); }
+.hg-muted     { color: var(--muted); }
+.hg-on-primary{ color: var(--on-primary); }
+.hg-icon      { color: var(--color-icon); }
+
+.hg-border    { border-color: var(--line); }
+.hg-border-accent { border-color: var(--color-icon); }
+
+.hg-focus:focus-visible {
+  outline: 3px solid var(--color-secondary);
+  outline-offset: 2px;
+}

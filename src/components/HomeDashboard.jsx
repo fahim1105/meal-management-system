@@ -2,9 +2,10 @@ import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
 import {
   FaUtensils, FaChartLine, FaCalendarCheck, FaUsers,
-  FaCopy, FaCrown, FaUser, FaMoneyBillWave, FaShoppingCart
+  FaCopy, FaCrown, FaUser, FaMoneyBillWave, FaShoppingCart, FaHistory
 } from 'react-icons/fa';
 import burgerToast from './BurgerToast';
 import { queryKeys, fetchGroup, fetchSummary, fetchSchedule } from '../lib/queries';
@@ -18,6 +19,9 @@ const HomeDashboard = () => {
   const { getAuthHeaders, userData } = useAuth();
   const navigate = useNavigate();
   const currentMonth = format(new Date(), 'yyyy-MM');
+  
+  // Dynamic greeting that updates every minute
+  const [currentTime, setCurrentTime] = useState(new Date());
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const enabled = !!userData?.groupId;
 
@@ -25,18 +29,21 @@ const HomeDashboard = () => {
     queryKey: queryKeys.group(),
     queryFn: () => fetchGroup(getAuthHeaders),
     enabled,
+    refetchInterval: 1000 * 10, // Auto-refresh every 10 seconds
   });
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: queryKeys.summary(currentMonth),
     queryFn: () => fetchSummary(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 10, // Auto-refresh every 10 seconds
   });
 
   const { data: schedule, isLoading: scheduleLoading } = useQuery({
     queryKey: queryKeys.schedule(currentMonth),
     queryFn: () => fetchSchedule(getAuthHeaders, currentMonth),
     enabled,
+    refetchInterval: 1000 * 10, // Auto-refresh every 10 seconds
   });
 
   const loading = groupLoading || summaryLoading || scheduleLoading;
@@ -50,7 +57,16 @@ const HomeDashboard = () => {
   const myStats  = summary?.memberStats?.[userData?.uid];
   const isManager = group?.managerId === userData?.uid;
 
-  const hour = new Date().getHours();
+  // Update time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const hour = currentTime.getHours();
   const greeting =
     hour >= 5  && hour < 12 ? 'Good morning'  :
     hour >= 12 && hour < 14 ? 'Good noon'      :
@@ -89,18 +105,34 @@ const HomeDashboard = () => {
   if (!group) { navigate('/group-setup'); return null; }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-0 lg:px-4 py-0 lg:py-8 space-y-6">
 
       {/* Hero Greeting Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-2xl shadow-primary/30 min-h-[160px]">
-        <div className="absolute top-0 left-0 w-72 h-72 bg-white/5 rounded-full -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
+      <div className="sticky top-0 z-50 lg:relative lg:top-auto lg:z-auto relative rounded-3xl lg:rounded-3xl overflow-hidden bg-primary shadow-2xl min-h-[160px] -mx-4 lg:mx-0 rounded-t-none lg:rounded-t-3xl">
+        <div className="absolute top-0 left-0 w-72 h-72 bg-black/5 rounded-full -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-black/5 rounded-full translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
+        
+        {/* 3 dot menu button - only on mobile */}
+        <button
+          onClick={() => {
+            // Trigger drawer open - we'll need to pass this as prop
+            const event = new CustomEvent('openDrawer');
+            window.dispatchEvent(event);
+          }}
+          className="lg:hidden absolute top-4 right-4 z-20 btn btn-ghost btn-sm btn-circle text-white/90 hover:bg-white/20"
+          aria-label="Open menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="w-5 h-5 stroke-current">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+          </svg>
+        </button>
+        
         <div className="relative z-10 flex items-center justify-between px-6 py-7 md:px-10">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-white/60 text-sm font-medium">{format(new Date(), 'EEEE, dd MMMM yyyy')}</span>
+              <span className="text-white/80 text-sm font-medium">{format(new Date(), 'EEEE, dd MMMM yyyy')}</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">
+            <h1 className="text-3xl md:text-4xl font-black text-white leading-tight drop-shadow-md">
               {greeting},<br className="sm:hidden" /> {userData?.name?.split(' ')[0]}!
             </h1>
           </div>
@@ -112,6 +144,7 @@ const HomeDashboard = () => {
       </div>
 
       {/* Today's Bazar Duty */}
+      <div className="px-4 lg:px-0">
       {todayDuty ? (
         <div className={`rounded-2xl p-5 border-2 flex items-center gap-4 shadow-lg transition-all ${
           todayDuty.userId === userData?.uid
@@ -144,8 +177,10 @@ const HomeDashboard = () => {
           </div>
         </div>
       )}
+      </div>
 
       {/* Stats Row */}
+      <div className="px-4 lg:px-0">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* My Balance */}
         <div className="card bg-base-100 shadow-xl border border-base-300/60 hover:shadow-2xl hover:-translate-y-0.5 transition-all">
@@ -203,11 +238,11 @@ const HomeDashboard = () => {
         </div>
 
         {/* Group Info */}
-        <div className="card bg-gradient-to-br from-primary to-blue-600 text-white shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all">
+        <div className="card bg-base-100 border-2 border-primary/20 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all">
           <div className="card-body p-5 gap-3">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <FaUsers className="text-white text-lg" />
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <FaUsers className="text-primary text-lg" />
               </div>
               {isManager && (
                 <span className="badge badge-xs bg-warning border-none text-warning-content gap-1 font-bold">
@@ -216,14 +251,14 @@ const HomeDashboard = () => {
               )}
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Your Group</p>
-              <p className="text-xl font-black text-white leading-tight">{group?.name}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-base-content/60 mb-1">Your Group</p>
+              <p className="text-xl font-black text-base-content leading-tight">{group?.name}</p>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-white/60 text-xs flex items-center gap-1">
+                <span className="text-base-content/70 text-xs flex items-center gap-1">
                   <FaUser className="text-[10px]" /> {group?.members?.filter(m => m.status === 'active').length} members
                 </span>
                 <button
-                  className="badge bg-white/20 border-white/20 text-white font-mono text-xs cursor-pointer hover:bg-white/30 transition-colors gap-1"
+                  className="badge bg-primary/10 border-primary/20 text-primary font-mono text-xs cursor-pointer hover:bg-primary/20 transition-colors gap-1"
                   onClick={() => { navigator.clipboard.writeText(group?.groupCode); burgerToast.success('Copied!'); }}
                 >
                   {group?.groupCode} <FaCopy className="text-[9px]" />
@@ -233,24 +268,26 @@ const HomeDashboard = () => {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Quick Actions */}
+      <div className="px-4 lg:px-0">
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-base-content/35 mb-3">Quick Actions</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: FaUtensils,    label: 'Meals',   gradient: 'from-blue-500 to-blue-600',    shadow: 'shadow-blue-500/25',    tab: 'meals' },
-            { icon: FaChartLine,   label: 'Finance', gradient: 'from-emerald-500 to-green-600', shadow: 'shadow-emerald-500/25', tab: 'finance' },
-            { icon: FaCalendarCheck, label: 'Bazar', gradient: 'from-teal-500 to-teal-600',    shadow: 'shadow-teal-500/25',    tab: 'bazar' },
-          ].map(({ icon: Icon, label, gradient, shadow, tab }) => (
-            <Link key={label} to="/dashboard" state={{ tab }}
-              className={`flex flex-col items-center gap-2.5 p-5 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg ${shadow} hover:shadow-xl hover:-translate-y-1 transition-all duration-200`}
+            { icon: FaUser,    label: 'Profile',    to: '/profile' },
+            { icon: FaHistory, label: 'My History', to: '/my-history' },
+          ].map(({ icon: Icon, label, to }) => (
+            <Link key={label} to={to}
+              className="flex flex-col items-center gap-2.5 p-5 rounded-2xl bg-primary/10 border-2 border-primary/20 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
             >
-              <Icon className="text-white text-2xl" />
-              <span className="text-white text-xs font-bold">{label}</span>
+              <Icon className="text-primary text-2xl" />
+              <span className="text-primary text-xs font-bold">{label}</span>
             </Link>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

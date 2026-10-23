@@ -23,6 +23,14 @@ const financeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  managerId: {
+    type: String,
+    default: null
+  },
+  managerName: {
+    type: String,
+    default: ''
+  },
   deposits: [depositSchema],
   bazarCosts: [bazarSchema],
   createdAt: {

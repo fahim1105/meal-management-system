@@ -152,11 +152,11 @@ const GroupSetup = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-base-200 via-base-100 to-base-200 py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-base-100 py-12 px-4">
         <div className="w-full max-w-5xl">
           {/* Header Section */}
           <div className="text-center mb-8 animate-fadeIn">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent mb-3">
+            <h1 className="text-4xl md:text-5xl font-bold text-primary mb-3">
               Group Setup
             </h1>
             <p className="text-base-content/70 text-lg">
@@ -234,7 +234,7 @@ const GroupSetup = () => {
                 onClick={() => setMode('create')}
               >
                 <div className="card-body items-center text-center p-8">
-                  <div className="bg-gradient-to-br from-primary to-blue-600 p-6 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-primary p-6 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
                     <FaUsers className="text-5xl text-white" />
                   </div>
                   <h2 className="card-title text-2xl font-bold text-primary mb-2">
@@ -270,7 +270,7 @@ const GroupSetup = () => {
                 onClick={() => setMode('join')}
               >
                 <div className="card-body items-center text-center p-8">
-                  <div className="bg-gradient-to-br from-secondary to-purple-600 p-6 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-secondary p-6 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
                     <FaKey className="text-5xl text-white" />
                   </div>
                   <h2 className="card-title text-2xl font-bold text-secondary mb-2">

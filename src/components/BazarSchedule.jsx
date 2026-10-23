@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
+import { format, getDaysInMonth, isToday, startOfMonth, isBefore, isAfter, differenceInDays } from 'date-fns';
 import { FaCalendarCheck, FaTrash, FaChevronLeft, FaChevronRight, FaCalendarAlt, FaFilePdf } from 'react-icons/fa';
 import { queryKeys, fetchSchedule } from '../lib/queries';
 
@@ -40,7 +40,14 @@ const BazarSchedule = ({ group, isManager }) => {
       confirmButtonText: 'Yes, Delete',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: { popup: 'rounded-2xl', confirmButton: 'btn btn-error', cancelButton: 'btn btn-ghost' }
+      customClass: { 
+        popup: 'swal-bazar-popup rounded-2xl',
+        title: 'swal-bazar-title',
+        htmlContainer: 'swal-bazar-text',
+        icon: 'swal-bazar-icon',
+        confirmButton: 'swal-bazar-confirm',
+        cancelButton: 'swal-bazar-cancel'
+      }
     });
     if (!result.isConfirmed) return;
     try {
@@ -92,133 +99,523 @@ const BazarSchedule = ({ group, isManager }) => {
     }
   };
 
+  const getDateStatus = (date, sortedRanges) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
+    for (const entry of sortedRanges) {
+      const fromStr = format(new Date(entry.fromDate), 'yyyy-MM-dd');
+      const toStr = format(new Date(entry.toDate), 'yyyy-MM-dd');
+      
+      if (dateStr >= fromStr && dateStr <= toStr) {
+        if (dateStr < todayStr) return 'done';
+        if (dateStr === todayStr) return 'today';
+        return 'upcoming';
+      }
+    }
+    return 'none';
+  };
+
+  const getMemberName = (userId) => {
+    const member = group?.members?.find(m => m.userId === userId);
+    return member?.name || 'Unknown';
+  };
+
+  // Derived data for summary cards
+  const sortedRanges = schedule?.ranges ? [...schedule.ranges].sort((a, b) => new Date(a.fromDate) - new Date(b.fromDate)) : [];
+  const today = new Date();
+  
+  // On duty now
+  const onDutyMember = sortedRanges.find(entry => isTodayInRange(entry.fromDate, entry.toDate));
+  const onDutyName = onDutyMember ? getMemberName(onDutyMember.userId) : null;
+  const onDutyPhoto = onDutyMember ? group?.members?.find(m => m.userId === onDutyMember.userId)?.photoURL : null;
+  const onDutyDayNum = onDutyMember ? differenceInDays(today, new Date(onDutyMember.fromDate)) + 1 : null;
+  const onDutyTotalDays = onDutyMember ? differenceInDays(new Date(onDutyMember.toDate), new Date(onDutyMember.fromDate)) + 1 : null;
+  
+  // Your turn
+  const myEntry = sortedRanges.find(entry => entry.userId === userData?.uid);
+  const myStatus = myEntry 
+    ? (isTodayInRange(myEntry.fromDate, myEntry.toDate) ? 'active' 
+       : (isBefore(new Date(myEntry.toDate), today) ? 'done' 
+          : 'upcoming'))
+    : null;
+  const myDaysUntil = myEntry && myStatus === 'upcoming' ? differenceInDays(new Date(myEntry.fromDate), today) : null;
+  
+  // Progress
+  const doneCount = sortedRanges.filter(entry => isBefore(new Date(entry.toDate), today)).length;
+  const totalCount = sortedRanges.length;
+  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-teal-500 to-teal-600 p-6 rounded-2xl shadow-lg">
-        <div className="flex flex-col gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      {/* 5.1 Header */}
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
-            <h2 className="text-3xl font-bold text-white mb-1">Bazar Schedule</h2>
-            <p className="text-white/80 text-sm">Who does bazar on which day</p>
+            <h1 className="text-[26px] sm:text-[32px] font-extrabold text-base-content tracking-tight leading-none">
+              Bazar Schedule
+            </h1>
+            <p className="text-sm text-base-content/70 mt-1">Who does bazar on which day</p>
           </div>
-          <div className="flex items-center gap-2 w-full">
-            <label className="text-white text-sm font-medium flex items-center gap-2 shrink-0">
-              <FaCalendarAlt className="text-lg" />Month:
-            </label>
-            <button type="button" onClick={() => navigateMonth(-1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
-              <FaChevronLeft />
-            </button>
-            <div className="relative flex-1 min-w-0">
+          
+          {/* Month control - desktop: right side, mobile: full width */}
+          <div className="sm:min-w-[320px]">
+            <div className="bg-base-200 border border-base-content/15 rounded-xl p-1 flex items-center gap-1">
+              <button 
+                type="button" 
+                onClick={() => navigateMonth(-1)} 
+                className="w-9 h-9 rounded-[9px] flex items-center justify-center transition-colors focus-visible:outline-3 focus-visible:outline-accent focus-visible:outline-offset-2"
+                style={{ background: 'var(--bz-tile)' }}
+                aria-label="Previous month"
+              >
+                <FaChevronLeft className="text-base-content" />
+              </button>
               <input
                 type="month"
-                id="scheduleMonthPicker"
-                className="input input-bordered bg-white text-gray-800 font-medium shadow-md w-full cursor-pointer"
+                className="flex-1 bg-transparent text-center font-semibold text-base-content cursor-pointer focus-visible:outline-3 focus-visible:outline-accent focus-visible:outline-offset-2 px-2"
                 value={currentMonth}
                 onChange={e => setCurrentMonth(e.target.value)}
+                aria-label="Select month"
               />
+              <button 
+                type="button" 
+                onClick={() => navigateMonth(1)} 
+                className="w-9 h-9 rounded-[9px] flex items-center justify-center transition-colors focus-visible:outline-3 focus-visible:outline-accent focus-visible:outline-offset-2"
+                style={{ background: 'var(--bz-tile)' }}
+                aria-label="Next month"
+              >
+                <FaChevronRight className="text-base-content" />
+              </button>
             </div>
-            <button type="button" onClick={() => navigateMonth(1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
-              <FaChevronRight />
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Schedule display */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-teal-500">
-        <div className="card-body">
-          <div className="flex items-start justify-between gap-2 mb-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-teal-500/10 p-3 rounded-full shrink-0">
-                <FaCalendarAlt className="text-xl text-teal-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-teal-600 text-base leading-tight">
-                  {format(new Date(currentMonth + '-01'), 'MMM yyyy')} Schedule
-                </h3>
-                <p className="text-xs text-base-content/60 mt-0.5">{schedule?.ranges?.length || 0} members assigned</p>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <span className="loading loading-spinner loading-lg text-neutral"></span>
+        </div>
+      ) : !schedule?.ranges?.length ? (
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-8 sm:p-12 flex flex-col items-center justify-center text-center">
+          <FaCalendarCheck className="text-5xl sm:text-6xl text-base-content/40 mb-4" />
+          <p className="text-lg sm:text-xl font-bold text-base-content/70 mb-2">No schedule for this month</p>
+          {isManager && <p className="text-sm text-base-content/60">Set schedule from Manager Settings</p>}
+          {!isManager && <p className="text-sm text-base-content/60">Manager hasn't set a schedule yet</p>}
+        </div>
+      ) : (
+        <>
+          {/* 5.2 Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr] gap-3">
+            {/* Card 1: On duty now */}
+            <div 
+              className="bg-neutral border border-neutral rounded-[18px] p-[18px] space-y-3"
+              style={{ color: 'var(--bz-on-strong)' }}
+            >
+              <p className="text-[13px] opacity-90 font-medium">On duty now</p>
+              {onDutyMember ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center shrink-0 border-2 border-white/20" style={{ background: 'var(--bz-tile)' }}>
+                    {onDutyPhoto ? (
+                      <img src={onDutyPhoto} alt={onDutyName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg font-bold text-base-content">{onDutyName?.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[24px] font-extrabold leading-tight truncate">{onDutyName}</p>
+                    <p className="text-[13px] opacity-80 mt-0.5">
+                      {format(new Date(onDutyMember.fromDate), 'dd MMM')} to {format(new Date(onDutyMember.toDate), 'dd MMM')}, day {onDutyDayNum} of {onDutyTotalDays}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-[20px] font-bold opacity-80">Nobody today</p>
+                  {sortedRanges[0] && isAfter(new Date(sortedRanges[0].fromDate), today) && (
+                    <p className="text-[13px] opacity-75 mt-1">
+                      Next: {getMemberName(sortedRanges[0].userId)} on {format(new Date(sortedRanges[0].fromDate), 'dd MMM')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Your turn */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px] space-y-2">
+              <p className="text-[13px] text-base-content/70 font-medium">Your turn</p>
+              {myEntry ? (
+                <>
+                  <p className="text-[18px] sm:text-[20px] font-bold text-base-content leading-tight">
+                    {format(new Date(myEntry.fromDate), 'dd MMM')} to {format(new Date(myEntry.toDate), 'dd MMM')}
+                  </p>
+                  <p className="text-[13px] text-base-content/70">
+                    {myStatus === 'done' && '✓ Completed'}
+                    {myStatus === 'active' && '● It is your turn today'}
+                    {myStatus === 'upcoming' && `In ${myDaysUntil} ${myDaysUntil === 1 ? 'day' : 'days'}`}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[18px] font-semibold text-base-content/60">Not assigned</p>
+              )}
+            </div>
+
+            {/* Card 3: Progress */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px] space-y-2">
+              <p className="text-[13px] text-base-content/70 font-medium">Progress</p>
+              <p className="text-[20px] font-bold text-base-content leading-tight">
+                {doneCount} of {totalCount} turns done
+              </p>
+              <div className="space-y-1.5">
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bz-line)' }}>
+                  <div className="h-full bg-neutral transition-all duration-500" style={{ width: `${progressPct}%` }}></div>
+                </div>
+                <p className="text-[13px] text-base-content/70">{progressPct}% of the schedule</p>
               </div>
             </div>
-            {schedule?.ranges?.length > 0 && (
-              <div className="flex flex-col gap-1.5 shrink-0">
+          </div>
+
+          {/* 5.3 Month at a Glance */}
+          <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-4 sm:p-5 space-y-4">
+            <h3 className="text-base sm:text-lg font-bold text-base-content">Month at a glance</h3>
+            
+            <div>
+              <div 
+                className="grid gap-[3px] mb-2"
+                style={{ gridTemplateColumns: `repeat(${getDaysInMonth(new Date(currentMonth + '-01'))}, 1fr)` }}
+              >
+                {Array.from({ length: getDaysInMonth(new Date(currentMonth + '-01')) }, (_, i) => {
+                  const day = i + 1;
+                  const date = new Date(currentMonth + `-${String(day).padStart(2, '0')}`);
+                  const status = getDateStatus(date, sortedRanges);
+                  const memberForDay = sortedRanges.find(entry => {
+                    const fromStr = format(new Date(entry.fromDate), 'yyyy-MM-dd');
+                    const toStr = format(new Date(entry.toDate), 'yyyy-MM-dd');
+                    const dateStr = format(date, 'yyyy-MM-dd');
+                    return dateStr >= fromStr && dateStr <= toStr;
+                  });
+                  const memberName = memberForDay ? getMemberName(memberForDay.userId) : 'No bazar';
+                  const isTodayCell = isToday(date);
+                  
+                  return (
+                    <div
+                      key={day}
+                      className="h-[22px] sm:h-[26px] rounded-md transition-colors"
+                      style={{
+                        background: status === 'done' ? 'var(--bz-done)' 
+                                  : status === 'today' ? 'var(--color-neutral)'
+                                  : status === 'upcoming' ? 'var(--bz-tile)'
+                                  : 'var(--bz-alt)',
+                        border: status === 'done' ? 'none' 
+                              : status === 'upcoming' ? '1px solid var(--color-neutral)'
+                              : '1px solid var(--bz-line)',
+                        boxShadow: isTodayCell ? '0 0 0 2px var(--color-base-100), 0 0 0 4px var(--color-base-content)' : 'none'
+                      }}
+                      title={`${day} ${format(date, 'EEE')}: ${memberName}`}
+                      aria-label={`${day} ${format(date, 'EEEE')}: ${memberName}`}
+                    ></div>
+                  );
+                })}
+              </div>
+              
+              {/* Day numbers */}
+              <div 
+                className="grid gap-[3px] mb-3"
+                style={{ gridTemplateColumns: `repeat(${getDaysInMonth(new Date(currentMonth + '-01'))}, 1fr)` }}
+              >
+                {Array.from({ length: getDaysInMonth(new Date(currentMonth + '-01')) }, (_, i) => {
+                  const day = i + 1;
+                  const show = day === 1 || day % 5 === 0;
+                  return (
+                    <div key={day} className="text-center text-[10px] text-base-content/60">
+                      <span className={show ? '' : 'hidden sm:inline'}>{day}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-base-content/70">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-sm" style={{ background: 'var(--bz-done)' }}></div>
+                  <span>Done</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-sm bg-neutral"></div>
+                  <span>On duty</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-sm border border-neutral" style={{ background: 'var(--bz-tile)' }}></div>
+                  <span>Upcoming</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[10px] h-[10px] rounded-sm border" style={{ background: 'var(--bz-alt)', borderColor: 'var(--bz-line)' }}></div>
+                  <span>No bazar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5.4 Schedule Card */}
+          <div className="bg-base-200 border border-base-content/15 rounded-[18px] overflow-hidden">
+            {/* Header */}
+            <div className="p-4 sm:px-5 sm:py-4 border-b flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4" style={{ borderColor: 'var(--bz-line)' }}>
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: 'var(--bz-tile)' }}>
+                  <FaCalendarAlt className="text-lg text-base-content" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[19px] font-bold text-base-content leading-tight">
+                    {format(new Date(currentMonth + '-01'), 'MMM yyyy')} Schedule
+                  </h3>
+                  <p className="text-[13px] text-base-content/70 mt-0.5">
+                    {sortedRanges.length} {sortedRanges.length === 1 ? 'member' : 'members'} assigned
+                  </p>
+                </div>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-2 sm:shrink-0 sm:ml-auto">
                 <button
-                  className={`btn btn-xs bg-teal-500 hover:bg-teal-600 text-white border-none gap-1 w-full ${downloading ? 'loading' : ''}`}
                   onClick={handleDownloadPDF}
                   disabled={downloading}
+                  className="bg-neutral rounded-[10px] px-3.5 py-2 text-sm font-semibold flex items-center gap-2 transition-opacity hover:opacity-90 focus-visible:outline-3 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:opacity-50"
+                  style={{ color: 'var(--bz-on-strong)' }}
+                  aria-label="Download PDF"
                 >
-                  {!downloading && <FaFilePdf />} PDF
+                  {downloading ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    <FaFilePdf />
+                  )}
+                  <span className="hidden xs:inline">PDF</span>
                 </button>
                 {isManager && (
-                  <button className="btn btn-xs btn-error btn-outline gap-1 w-full" onClick={handleDelete}>
-                    <FaTrash /> Delete
+                  <button
+                    onClick={handleDelete}
+                    className="bg-transparent rounded-[10px] px-3.5 py-2 text-sm font-semibold flex items-center gap-2 transition-colors hover:opacity-80 focus-visible:outline-3 focus-visible:outline-accent focus-visible:outline-offset-2"
+                    style={{ 
+                      color: 'var(--bz-neg)',
+                      border: '1.5px solid color-mix(in oklab, var(--bz-neg) 55%, transparent)'
+                    }}
+                    aria-label="Delete schedule"
+                  >
+                    <FaTrash />
+                    <span className="hidden xs:inline">Delete</span>
                   </button>
                 )}
               </div>
-            )}
-          </div>
+            </div>
 
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <span className="loading loading-spinner loading-md text-teal-500"></span>
-            </div>
-          ) : !schedule?.ranges?.length ? (
-            <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
-              <FaCalendarCheck className="text-5xl mb-3" />
-              <p className="text-lg font-semibold">No schedule for this month</p>
-              {isManager && <p className="text-sm mt-1">Set schedule from Manager Settings</p>}
-              {!isManager && <p className="text-sm mt-1">Manager hasn't set a schedule yet</p>}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {[...schedule.ranges].sort((a, b) => new Date(a.fromDate) - new Date(b.fromDate)).map((entry, i) => {
+            {/* Member Rows */}
+            <ul className="p-2.5 sm:p-4 space-y-2.5" role="list">
+              {sortedRanges.map((entry, i) => {
                 const isMe = entry.userId === userData?.uid;
                 const isActive = isTodayInRange(entry.fromDate, entry.toDate);
                 const groupMember = group?.members?.find(m => m.userId === entry.userId);
                 const memberPhoto = groupMember?.photoURL;
                 const displayName = groupMember?.name || entry.name;
+                const duration = differenceInDays(new Date(entry.toDate), new Date(entry.fromDate)) + 1;
+                const statusText = isBefore(new Date(entry.toDate), today) ? 'done' 
+                                 : (isActive ? 'active' : 'upcoming');
+                
                 return (
-                  <div
-                    key={i}
-                    className={`rounded-xl p-4 border-2 transition-all ${
-                      isActive ? 'border-warning bg-warning/10'
-                      : isMe ? 'border-teal-400 bg-teal-500/5'
-                      : 'border-base-300 bg-base-200'
-                    }`}
+                  <li
+                    key={`${entry.userId}-${i}`}
+                    className="rounded-[14px] p-3 sm:p-4 transition-all"
+                    style={{
+                      background: isMe ? 'var(--bz-you)' : 'var(--bz-alt)',
+                      border: `1.5px solid ${isMe ? 'var(--color-neutral)' : 'var(--bz-line)'}`,
+                      boxShadow: isActive ? '0 0 0 3px color-mix(in oklab, var(--color-neutral) 28%, transparent)' : 'none'
+                    }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-10 h-10 rounded-full shrink-0 overflow-hidden flex items-center justify-center font-bold text-sm ${isActive ? 'bg-warning/20 text-warning' : 'bg-teal-500/10 text-teal-600'}`}>
-                          {memberPhoto
-                            ? <img src={memberPhoto} alt={displayName} className="w-full h-full object-cover" />
-                            : displayName.charAt(0).toUpperCase()
-                          }
+                    {/* Desktop Grid */}
+                    <div className="hidden sm:grid sm:grid-cols-[34px_minmax(180px,1.3fr)_minmax(250px,1.5fr)_80px_120px] sm:gap-3.5 sm:items-center">
+                      {/* Order badge */}
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-base-content" style={{ background: 'var(--bz-tile)' }}>
+                        {i + 1}
+                      </div>
+
+                      {/* Avatar + Name */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div 
+                          className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 border"
+                          style={{ 
+                            background: 'var(--bz-tile)',
+                            borderColor: 'var(--bz-line)',
+                            borderWidth: '1.5px'
+                          }}
+                        >
+                          {memberPhoto ? (
+                            <img src={memberPhoto} alt={displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-base-content">
+                              {displayName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
                             <span className="font-bold text-base-content truncate">{displayName}</span>
-                            {isMe && <span className="badge badge-sm badge-primary shrink-0">You</span>}
-                            {isActive && <span className="badge badge-sm badge-warning shrink-0">On Duty</span>}
+                            {isMe && (
+                              <span 
+                                className="bg-neutral rounded-full text-[11px] font-semibold px-2 py-0.5"
+                                style={{ color: 'var(--bz-on-strong)' }}
+                              >
+                                You
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs text-base-content/50 mt-0.5">Member #{i + 1}</p>
+                          <p className="text-[13px] text-base-content/70">Member #{i + 1}</p>
                         </div>
                       </div>
+
+                      {/* Date Range */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span 
+                          className="rounded-lg px-2.5 py-0.5 text-[13px] font-semibold text-base-content"
+                          style={{ background: 'var(--bz-tile)' }}
+                        >
+                          {format(new Date(entry.fromDate), 'dd MMM yyyy')}
+                        </span>
+                        <span className="text-base-content/60 text-sm">→</span>
+                        <span 
+                          className="rounded-lg px-2.5 py-0.5 text-[13px] font-semibold text-base-content"
+                          style={{ background: 'var(--bz-tile)' }}
+                        >
+                          {format(new Date(entry.toDate), 'dd MMM yyyy')}
+                        </span>
+                      </div>
+
+                      {/* Duration */}
+                      <div className="text-[13px] text-base-content/70">
+                        {duration} {duration === 1 ? 'day' : 'days'}
+                      </div>
+
+                      {/* Status */}
+                      <div>
+                        {statusText === 'done' && (
+                          <span 
+                            className="rounded-full text-[13px] font-semibold px-3 py-1 inline-block"
+                            style={{ background: 'var(--bz-tile)', color: 'var(--bz-pos)' }}
+                          >
+                            ✓ Done
+                          </span>
+                        )}
+                        {statusText === 'active' && (
+                          <span 
+                            className="bg-neutral rounded-full text-[13px] font-semibold px-3 py-1 inline-block"
+                            style={{ color: 'var(--bz-on-strong)' }}
+                          >
+                            ● On duty
+                          </span>
+                        )}
+                        {statusText === 'upcoming' && (
+                          <span 
+                            className="bg-transparent rounded-full text-[13px] font-semibold px-3 py-1 inline-block text-base-content"
+                            style={{ border: '1.5px solid var(--color-neutral)' }}
+                          >
+                            Upcoming
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className={`badge badge-md font-semibold shrink-0 ${isActive ? 'badge-warning' : 'badge-outline border-teal-400 text-teal-600'}`}>
-                        {format(new Date(entry.fromDate), 'dd MMM yyyy')}
-                      </span>
-                      <span className="text-base-content/40 text-sm font-bold shrink-0">→</span>
-                      <span className={`badge badge-md font-semibold shrink-0 ${isActive ? 'badge-warning' : 'badge-outline border-teal-400 text-teal-600'}`}>
-                        {format(new Date(entry.toDate), 'dd MMM yyyy')}
-                      </span>
+
+                    {/* Mobile Grid */}
+                    <div className="grid sm:hidden grid-cols-[30px_1fr_auto] gap-2.5" style={{ gridTemplateAreas: '"n who status" ". dates dates"' }}>
+                      {/* Order badge */}
+                      <div 
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-base-content"
+                        style={{ background: 'var(--bz-tile)', gridArea: 'n' }}
+                      >
+                        {i + 1}
+                      </div>
+
+                      {/* Avatar + Name */}
+                      <div className="flex items-center gap-2 min-w-0" style={{ gridArea: 'who' }}>
+                        <div 
+                          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0 border"
+                          style={{ 
+                            background: 'var(--bz-tile)',
+                            borderColor: 'var(--bz-line)',
+                            borderWidth: '1.5px'
+                          }}
+                        >
+                          {memberPhoto ? (
+                            <img src={memberPhoto} alt={displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-base-content">
+                              {displayName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-base-content truncate text-sm">{displayName}</span>
+                            {isMe && (
+                              <span 
+                                className="bg-neutral rounded-full text-[10px] font-semibold px-1.5 py-0.5"
+                                style={{ color: 'var(--bz-on-strong)' }}
+                              >
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-base-content/70">Member #{i + 1}</p>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div style={{ gridArea: 'status' }}>
+                        {statusText === 'done' && (
+                          <span 
+                            className="rounded-full text-[11px] font-semibold px-2 py-1 inline-block"
+                            style={{ background: 'var(--bz-tile)', color: 'var(--bz-pos)' }}
+                          >
+                            ✓ Done
+                          </span>
+                        )}
+                        {statusText === 'active' && (
+                          <span 
+                            className="bg-neutral rounded-full text-[11px] font-semibold px-2 py-1 inline-block"
+                            style={{ color: 'var(--bz-on-strong)' }}
+                          >
+                            ● On duty
+                          </span>
+                        )}
+                        {statusText === 'upcoming' && (
+                          <span 
+                            className="bg-transparent rounded-full text-[11px] font-semibold px-2 py-1 inline-block text-base-content"
+                            style={{ border: '1.5px solid var(--color-neutral)' }}
+                          >
+                            Upcoming
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Date Range */}
+                      <div className="flex items-center gap-2 flex-wrap" style={{ gridArea: 'dates' }}>
+                        <span 
+                          className="rounded-lg px-2 py-0.5 text-[12px] font-semibold text-base-content"
+                          style={{ background: 'var(--bz-tile)' }}
+                        >
+                          {format(new Date(entry.fromDate), 'dd MMM yyyy')}
+                        </span>
+                        <span className="text-base-content/60 text-xs">→</span>
+                        <span 
+                          className="rounded-lg px-2 py-0.5 text-[12px] font-semibold text-base-content"
+                          style={{ background: 'var(--bz-tile)' }}
+                        >
+                          {format(new Date(entry.toDate), 'dd MMM yyyy')}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          )}
-        </div>
-      </div>
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 };

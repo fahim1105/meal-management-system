@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -39,10 +39,8 @@ const FinanceSummary = ({ group, isManager }) => {
   const [deletingDepositId, setDeletingDepositId] = useState(null);
   const [deletingBazarId, setDeletingBazarId] = useState(null);
   const [historyTab, setHistoryTab] = useState('deposit');
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const chartAxisColor = isDark ? '#9ca3af' : '#6b7280';
-  const chartGridColor = isDark ? '#374151' : '#e5e7eb';
+  const [depositSort, setDepositSort] = useState('newest');
+  const [bazarSort, setBazarSort] = useState('newest');
 
   const handleDeleteBazar = async (bazarId) => {
     const result = await Swal.fire({
@@ -50,12 +48,22 @@ const FinanceSummary = ({ group, isManager }) => {
       text: 'Are you sure you want to delete this bazar entry?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, Delete',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: { popup: 'rounded-2xl', confirmButton: 'btn btn-error', cancelButton: 'btn btn-ghost' }
+      background: 'var(--color-base-100)',
+      color: 'var(--color-base-content)',
+      iconColor: 'var(--fin-neg)',
+      confirmButtonColor: 'transparent',
+      cancelButtonColor: 'transparent',
+      customClass: {
+        popup: 'swal-finance-popup',
+        title: 'swal-finance-title',
+        htmlContainer: 'swal-finance-text',
+        confirmButton: 'swal-finance-confirm',
+        cancelButton: 'swal-finance-cancel',
+        icon: 'swal-finance-icon'
+      }
     });
     if (!result.isConfirmed) return;
     setDeletingBazarId(bazarId);
@@ -77,12 +85,22 @@ const FinanceSummary = ({ group, isManager }) => {
       text: 'Are you sure you want to delete this deposit entry?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, Delete',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: { popup: 'rounded-2xl', confirmButton: 'btn btn-error', cancelButton: 'btn btn-ghost' }
+      background: 'var(--color-base-100)',
+      color: 'var(--color-base-content)',
+      iconColor: 'var(--fin-neg)',
+      confirmButtonColor: 'transparent',
+      cancelButtonColor: 'transparent',
+      customClass: {
+        popup: 'swal-finance-popup',
+        title: 'swal-finance-title',
+        htmlContainer: 'swal-finance-text',
+        confirmButton: 'swal-finance-confirm',
+        cancelButton: 'swal-finance-cancel',
+        icon: 'swal-finance-icon'
+      }
     });
     if (!result.isConfirmed) return;
     setDeletingDepositId(depositId);
@@ -98,12 +116,19 @@ const FinanceSummary = ({ group, isManager }) => {
     }
   };
 
+  const sortFns = {
+    newest:      (a, b) => new Date(b.date) - new Date(a.date),
+    oldest:      (a, b) => new Date(a.date) - new Date(b.date),
+    highAmount:  (a, b) => b.amount - a.amount,
+    lowAmount:   (a, b) => a.amount - b.amount,
+  };
+
   const getDepositHistory = () => {
     if (!finance?.deposits?.length) return [];
     return finance.deposits.map(d => {
       const member = group?.members.find(m => m.userId === d.userId);
       return { ...d, memberName: member?.name || 'Unknown' };
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }).sort(sortFns[depositSort]);
   };
 
   const navigateMonth = (direction) => {
@@ -133,17 +158,18 @@ const FinanceSummary = ({ group, isManager }) => {
     }));
   };
 
-  const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#6366f1'];
-
   const currencyFields = ['deposit', 'cost', 'balance', 'Deposit', 'Cost', 'Balance'];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-base-100 p-3 rounded-lg shadow-xl border-2 border-primary/20">
-          <p className="font-bold text-primary">{label}</p>
+        <div className="px-3 py-2 rounded-lg border text-base-content text-[13px]" style={{ 
+          backgroundColor: 'var(--color-base-200)', 
+          borderColor: 'var(--fin-line)' 
+        }}>
+          <p className="font-bold mb-1">{label}</p>
           {payload.map((entry, index) => (
-            <p key={index} style={{ color: entry.color }}>
+            <p key={index} className="tabular-nums" style={{ color: entry.color }}>
               {currencyFields.includes(entry.name)
                 ? `${entry.name}: ৳${entry.value?.toFixed(2)}`
                 : `${entry.name}: ${entry.value}`}
@@ -160,690 +186,764 @@ const FinanceSummary = ({ group, isManager }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 mx-auto pb-6">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
-        <div className="flex flex-col gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-1">Finance Summary</h2>
-            <p className="text-white/80 text-sm">Track your group's financial status</p>
-          </div>
-          <div className="flex items-center gap-2 w-full">
-            <label className="text-white text-sm font-medium flex items-center gap-2 shrink-0">
-              <FaCalendarAlt className="text-lg" />Month:
-            </label>
-            <button type="button" onClick={() => navigateMonth(-1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
-              <FaChevronLeft />
-            </button>
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="month"
-                id="monthPicker"
-                className="input input-bordered bg-white text-gray-800 font-medium shadow-md w-full cursor-pointer"
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(e.target.value)}
-              />
-            </div>
-            <button type="button" onClick={() => navigateMonth(1)} className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/20 shrink-0">
-              <FaChevronRight />
-            </button>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] md:text-[32px] font-extrabold text-base-content leading-none">Finance Summary</h1>
+          <p className="text-sm text-base-content/70 mt-1">Track your group's financial status</p>
+        </div>
+        <div className="bg-base-200 border border-base-content/15 rounded-xl p-1 flex items-center gap-1 w-full md:w-auto">
+          <button 
+            type="button" 
+            onClick={() => navigateMonth(-1)} 
+            className="w-9 h-9 rounded-[9px] flex items-center justify-center text-base-content hover:bg-base-content/10 transition-colors"
+            style={{ backgroundColor: 'var(--fin-tile)' }}
+            aria-label="Previous month"
+          >
+            <FaChevronLeft />
+          </button>
+          <input
+            type="month"
+            className="flex-1 min-w-0 bg-transparent border-none text-center font-semibold text-base-content focus:outline-none cursor-pointer px-2"
+            value={currentMonth}
+            onChange={(e) => setCurrentMonth(e.target.value)}
+            aria-label="Select month"
+          />
+          <button 
+            type="button" 
+            onClick={() => navigateMonth(1)} 
+            className="w-9 h-9 rounded-[9px] flex items-center justify-center text-base-content hover:bg-base-content/10 transition-colors"
+            style={{ backgroundColor: 'var(--fin-tile)' }}
+            aria-label="Next month"
+          >
+            <FaChevronRight />
+          </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-6">
-        {/* 1. Total Deposits */}
-        <div className="card bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body p-3 md:p-6">
-            <div className="flex items-center justify-between md:flex-col md:items-start">
-              <div className="flex-1 md:w-full">
-                <div className="flex items-center justify-between mb-1 md:mb-4">
-                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Deposits</p>
-                  <div className="text-2xl md:text-4xl opacity-30 md:opacity-30"><FaMoneyBillWave /></div>
+      {/* KPI Cards */}
+      <div className="finance-kpi-grid">
+        {/* Net Balance - Hero Card */}
+        {(() => {
+          const netBalance = (finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 0) - (summary?.totalBazar || 0);
+          const isPositive = netBalance > 0;
+          const isZero = netBalance === 0;
+          
+          // Dynamic background color based on balance
+          const bgColor = isZero 
+            ? 'var(--color-base-200)' 
+            : isPositive 
+              ? 'var(--color-neutral)' 
+              : 'var(--color-error)';
+          
+          const textColor = isZero ? 'var(--color-base-content)' : 'var(--fin-on-strong)';
+          const borderColor = isZero ? 'var(--fin-line)' : bgColor;
+          
+          return (
+            <div 
+              className="rounded-[18px] p-5 relative overflow-hidden transition-colors duration-300" 
+              style={{ 
+                backgroundColor: bgColor,
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                borderColor: borderColor
+              }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium mb-1" style={{ color: textColor }}>Net Balance</p>
+                  {summaryLoading ? (
+                    <div className="h-8 sm:h-10 w-24 sm:w-32 rounded animate-pulse" style={{ backgroundColor: isZero ? 'var(--fin-tile)' : 'rgba(255,255,255,.22)' }} />
+                  ) : (
+                    <p className="text-[28px] sm:text-[34px] md:text-[40px] font-extrabold leading-none tabular-nums" style={{ color: textColor }}>
+                      ৳{netBalance.toFixed(2)}
+                    </p>
+                  )}
                 </div>
-                {summaryLoading ? (
-                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
-                ) : (
-                  <p className="text-lg md:text-4xl font-bold leading-none">৳{finance?.deposits?.reduce((sum, d) => sum + d.amount, 0)?.toFixed(2) || '0.00'}</p>
-                )}
+                <div 
+                  className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-[10px] flex items-center justify-center shrink-0" 
+                  style={{ backgroundColor: isZero ? 'var(--fin-tile)' : 'rgba(255,255,255,.18)' }}
+                >
+                  <FaBalanceScale className="text-base sm:text-lg" style={{ color: textColor }} />
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Total Bazar */}
-        <div className="card bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body p-3 md:p-6">
-            <div className="flex items-center justify-between md:flex-col md:items-start">
-              <div className="flex-1 md:w-full">
-                <div className="flex items-center justify-between mb-1 md:mb-4">
-                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Bazar</p>
-                  <div className="text-2xl md:text-4xl opacity-30"><FaShoppingCart /></div>
-                </div>
-                {summaryLoading ? (
-                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
-                ) : (
-                  <p className="text-lg md:text-4xl font-bold leading-none">৳{summary?.totalBazar?.toFixed(2) || '0.00'}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Net Balance */}
-        <div className={`card text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${
-          summaryLoading ? 'bg-gradient-to-br from-teal-500 to-cyan-600' : 
-          ((finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 0) - (summary?.totalBazar || 0)) >= 0 
-            ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
-            : 'bg-gradient-to-br from-red-500 to-pink-600'
-        }`}>
-          <div className="card-body p-3 md:p-6">
-            <div className="flex items-center justify-between md:flex-col md:items-start">
-              <div className="flex-1 md:w-full">
-                <div className="flex items-center justify-between mb-1 md:mb-4">
-                  <p className="text-white/90 text-xs md:text-sm font-semibold">Net Balance</p>
-                  <div className="text-2xl md:text-4xl opacity-30"><FaBalanceScale /></div>
-                </div>
-                {summaryLoading ? (
-                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
-                ) : (
-                  <p className="text-lg md:text-4xl font-bold leading-none">
-                    ৳{((finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 0) - (summary?.totalBazar || 0)).toFixed(2)}
+              {!summaryLoading && (
+                <div className="mt-4">
+                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: isZero ? 'var(--fin-tile)' : 'rgba(255,255,255,.22)' }}>
+                    <div 
+                      className="h-full rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: `${Math.min(100, ((summary?.totalBazar || 0) / (finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 1)) * 100)}%`,
+                        backgroundColor: isZero ? 'var(--color-neutral)' : 'var(--color-accent)'
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs mt-1.5" style={{ color: textColor, opacity: 0.85 }}>
+                    {Math.round(((summary?.totalBazar || 0) / (finance?.deposits?.reduce((sum, d) => sum + d.amount, 0) || 1)) * 100)}% of deposits spent
                   </p>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Total Deposits */}
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-3 sm:p-4">
+          <div className="flex items-start justify-between mb-1 sm:mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] sm:text-[13px] text-base-content/70 mb-1">Total Deposits</p>
+              {summaryLoading ? (
+                <div className="h-6 sm:h-8 w-20 sm:w-24 bg-base-content/10 rounded animate-pulse" />
+              ) : (
+                <p className="text-[20px] sm:text-[26px] font-extrabold leading-none tabular-nums text-base-content">
+                  ৳{finance?.deposits?.reduce((sum, d) => sum + d.amount, 0)?.toFixed(2) || '0.00'}
+                </p>
+              )}
+            </div>
+            <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-[10px] flex items-center justify-center text-base-content shrink-0" style={{ backgroundColor: 'var(--fin-tile)' }}>
+              <FaMoneyBillWave className="text-base sm:text-lg" />
             </div>
           </div>
+          <p className="text-[10px] sm:text-xs text-base-content/60">{finance?.deposits?.length || 0} {(finance?.deposits?.length || 0) === 1 ? 'entry' : 'entries'}</p>
         </div>
 
-        {/* 4. Total Meals */}
-        <div className="card bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-          <div className="card-body p-3 md:p-6">
-            <div className="flex items-center justify-between md:flex-col md:items-start">
-              <div className="flex-1 md:w-full">
-                <div className="flex items-center justify-between mb-1 md:mb-4">
-                  <p className="text-white/90 text-xs md:text-sm font-semibold">Total Meals</p>
-                  <div className="text-2xl md:text-4xl opacity-30"><FaUtensils /></div>
-                </div>
-                {summaryLoading ? (
-                  <div className="h-6 md:h-12 w-16 md:w-24 bg-white/30 rounded animate-pulse" />
-                ) : (
-                  <p className="text-lg md:text-4xl font-bold leading-none">{summary?.totalMeals || 0}</p>
-                )}
-              </div>
+        {/* Total Bazar */}
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-3 sm:p-4">
+          <div className="flex items-start justify-between mb-1 sm:mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] sm:text-[13px] text-base-content/70 mb-1">Total Bazar</p>
+              {summaryLoading ? (
+                <div className="h-6 sm:h-8 w-20 sm:w-24 bg-base-content/10 rounded animate-pulse" />
+              ) : (
+                <p className="text-[20px] sm:text-[26px] font-extrabold leading-none tabular-nums text-base-content">
+                  ৳{summary?.totalBazar?.toFixed(2) || '0.00'}
+                </p>
+              )}
+            </div>
+            <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-[10px] flex items-center justify-center text-base-content shrink-0" style={{ backgroundColor: 'var(--fin-tile)' }}>
+              <FaShoppingCart className="text-base sm:text-lg" />
             </div>
           </div>
+          <p className="text-[10px] sm:text-xs text-base-content/60">{finance?.bazarCosts?.length || 0} {(finance?.bazarCosts?.length || 0) === 1 ? 'entry' : 'entries'}</p>
         </div>
 
-        {/* 5. Meal Rate - Spans 2 columns on mobile */}
-        <div className="card bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 col-span-2 md:col-span-1">
-          <div className="card-body p-3 md:p-6">
-            <div className="flex items-center justify-between md:flex-col md:items-start">
-              <div className="flex-1 md:w-full">
-                <div className="flex items-center justify-between mb-1 md:mb-4">
-                  <p className="text-white/90 text-xs md:text-sm font-semibold">Meal Rate</p>
-                  <div className="text-2xl md:text-4xl opacity-30"><FaChartLine /></div>
-                </div>
-                {summaryLoading ? (
-                  <div className="h-6 md:h-12 w-20 md:w-36 bg-white/30 rounded animate-pulse" />
-                ) : (
-                  <p className="text-lg md:text-4xl font-bold leading-none">৳{summary?.mealRate?.toFixed(2) || '0.00'}</p>
-                )}
-              </div>
+        {/* Total Meals */}
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-3 sm:p-4">
+          <div className="flex items-start justify-between mb-1 sm:mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] sm:text-[13px] text-base-content/70 mb-1">Total Meals</p>
+              {summaryLoading ? (
+                <div className="h-6 sm:h-8 w-16 sm:w-20 bg-base-content/10 rounded animate-pulse" />
+              ) : (
+                <p className="text-[20px] sm:text-[26px] font-extrabold leading-none tabular-nums text-base-content">
+                  {summary?.totalMeals || 0}
+                </p>
+              )}
+            </div>
+            <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-[10px] flex items-center justify-center text-base-content shrink-0" style={{ backgroundColor: 'var(--fin-tile)' }}>
+              <FaUtensils className="text-base sm:text-lg" />
             </div>
           </div>
+          <p className="text-[10px] sm:text-xs text-base-content/60">Own and guest meals</p>
+        </div>
+
+        {/* Meal Rate */}
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-3 sm:p-4">
+          <div className="flex items-start justify-between mb-1 sm:mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] sm:text-[13px] text-base-content/70 mb-1">Meal Rate</p>
+              {summaryLoading ? (
+                <div className="h-6 sm:h-8 w-20 sm:w-24 bg-base-content/10 rounded animate-pulse" />
+              ) : (
+                <p className="text-[20px] sm:text-[26px] font-extrabold leading-none tabular-nums text-base-content">
+                  ৳{summary?.mealRate?.toFixed(2) || '0.00'}
+                </p>
+              )}
+            </div>
+            <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-[10px] flex items-center justify-center text-base-content shrink-0" style={{ backgroundColor: 'var(--fin-tile)' }}>
+              <FaChartLine className="text-base sm:text-lg" />
+            </div>
+          </div>
+          <p className="text-[10px] sm:text-xs text-base-content/60">
+            {summary?.totalBazar && summary?.totalMeals ? `৳${summary.totalBazar.toFixed(0)} ÷ ${summary.totalMeals} meals` : 'Per meal cost'}
+          </p>
         </div>
       </div>
 
-      {/* 1. Member Summary */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
-        <div className="card-body">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <FaUsers className="text-2xl text-primary" />
-            </div>
-            <div>
-              <h2 className="card-title text-primary">Member Summary</h2>
-              <p className="text-sm text-base-content/60">Individual financial breakdown</p>
-            </div>
+      {/* Member Summary */}
+      <div className="bg-base-200 border border-base-content/15 rounded-[18px] overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid var(--fin-line)' }}>
+          <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+            <FaUsers className="text-xl" />
           </div>
-          <div className="overflow-x-auto">
-            <table className="table table-zebra">
-              <thead>
-                <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
-                  <th className="font-bold">Name</th>
-                  <th className="font-bold text-center">Own Meals</th>
-                  <th className="font-bold text-center">Guest Meals</th>
-                  <th className="font-bold text-center">Total Meals</th>
-                  <th className="font-bold text-right">Deposit</th>
-                  <th className="font-bold text-right">Cost</th>
-                  <th className="font-bold text-right">Balance</th>
+          <div className="flex-1">
+            <h2 className="text-[19px] font-bold text-base-content leading-none">Member Summary</h2>
+            <p className="text-[13px] text-base-content/60 mt-0.5">Individual financial breakdown</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Member summary table">
+          <table className="w-full min-w-[720px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+            <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 3 }}>
+              <tr>
+                <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Name</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Own Meals</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Guest Meals</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Total Meals</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Deposit</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Cost</th>
+                <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70 whitespace-nowrap">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(summary?.memberStats || {}).map(([userId, stats], idx) => {
+                const member = group?.members.find(m => m.userId === userId);
+                const isInactive = member?.status === 'inactive';
+                const isCurrentUser = userId === userData?.uid;
+                return (
+                  <tr key={userId} className="group" style={{ 
+                    backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
+                    borderBottom: '1px solid var(--fin-line)'
+                  }}>
+                    <td className="px-4 py-3" style={{ backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)' }}>
+                      <div className="flex items-center gap-2.5 whitespace-nowrap">
+                        <div className="w-[26px] h-[26px] rounded-full bg-neutral flex items-center justify-center text-[11px] font-bold shrink-0" style={{ color: 'var(--fin-on-strong)' }}>
+                          {stats.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-semibold text-base-content">{stats.name}</span>
+                        {isCurrentUser && <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold text-base-content whitespace-nowrap" style={{ backgroundColor: 'var(--fin-tile)' }}>You</span>}
+                        {isInactive && <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold text-base-content/50 whitespace-nowrap" style={{ backgroundColor: 'var(--fin-tile)' }}>Inactive</span>}
+                      </div>
+                    </td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center min-w-[34px] px-2 h-6 rounded-lg text-[13px] font-bold text-base-content tabular-nums" style={{ 
+                        backgroundColor: 'var(--fin-tile)',
+                        opacity: stats.ownMeals === 0 ? 0.45 : 1
+                      }}>
+                        {stats.ownMeals || 0}
+                      </span>
+                    </td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center min-w-[34px] px-2 h-6 rounded-lg text-[13px] font-bold text-base-content tabular-nums" style={{ 
+                        backgroundColor: 'var(--fin-guest)',
+                        opacity: stats.guestMeals === 0 ? 0.45 : 1
+                      }}>
+                        {stats.guestMeals || 0}
+                      </span>
+                    </td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap">
+                      <span className="font-bold text-base-content tabular-nums">{stats.totalMeals}</span>
+                    </td>
+                    <td className="text-right px-4 py-3 font-semibold text-base-content tabular-nums whitespace-nowrap">৳{stats.deposit.toFixed(2)}</td>
+                    <td className="text-right px-4 py-3 font-semibold text-base-content tabular-nums whitespace-nowrap">৳{stats.cost.toFixed(2)}</td>
+                    <td className="text-right px-4 py-3 font-bold tabular-nums whitespace-nowrap" style={{ 
+                      color: stats.balance >= 0 ? 'var(--fin-pos)' : 'var(--fin-neg)'
+                    }}>
+                      {stats.balance >= 0 ? '+' : '−'}৳{Math.abs(stats.balance).toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {Object.keys(summary?.memberStats || {}).length > 0 && (
+              <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 3 }}>
+                <tr>
+                  <td className="px-4 py-3 font-bold text-base-content whitespace-nowrap">Total</td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    {Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + (s.ownMeals || 0), 0)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    {Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + (s.guestMeals || 0), 0)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    {Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + s.totalMeals, 0)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    ৳{Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + s.deposit, 0).toFixed(2)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    ৳{Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + s.cost, 0).toFixed(2)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums whitespace-nowrap">
+                    ৳{Object.values(summary?.memberStats || {}).reduce((sum, s) => sum + s.balance, 0).toFixed(2)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {Object.entries(summary?.memberStats || {}).map(([userId, stats]) => {
-                  const member = group?.members.find(m => m.userId === userId);
-                  const isInactive = member?.status === 'inactive';
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Deposit / Bazar History Panel */}
+      <div className="bg-base-200 border border-base-content/15 rounded-[18px] overflow-hidden">
+        {/* Tabs */}
+        <div className="mx-5 mt-4 mb-3 bg-base-100 border border-base-content/15 rounded-xl p-1 flex gap-1">
+          <button
+            onClick={() => setHistoryTab('deposit')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] font-semibold text-sm transition-colors ${
+              historyTab === 'deposit'
+                ? 'bg-neutral text-white'
+                : 'text-base-content/60 hover:bg-base-content/5'
+            }`}
+            role="tab"
+            aria-selected={historyTab === 'deposit'}
+            style={historyTab === 'deposit' ? { backgroundColor: 'var(--color-neutral)', color: 'var(--fin-on-strong)' } : {}}
+          >
+            Deposit
+            {finance?.deposits?.length > 0 && (
+              <span className="text-xs font-bold opacity-75">
+                {finance.deposits.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setHistoryTab('bazar')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] font-semibold text-sm transition-colors ${
+              historyTab === 'bazar'
+                ? 'bg-neutral text-white'
+                : 'text-base-content/60 hover:bg-base-content/5'
+            }`}
+            role="tab"
+            aria-selected={historyTab === 'bazar'}
+            style={historyTab === 'bazar' ? { backgroundColor: 'var(--color-neutral)', color: 'var(--fin-on-strong)' } : {}}
+          >
+            Bazar
+            {finance?.bazarCosts?.length > 0 && (
+              <span className="text-xs font-bold opacity-75">
+                {finance.bazarCosts.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Sort Row - Only show if there are 2+ entries */}
+        {((historyTab === 'deposit' && finance?.deposits?.length > 1) || 
+          (historyTab === 'bazar' && finance?.bazarCosts?.length > 1)) && (
+          <div className="px-5 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-medium text-base-content/60 shrink-0 hidden sm:inline">Sort by</span>
+              <div className="flex gap-1.5 flex-1 sm:flex-initial">
+                {[
+                  { value: 'newest', label: 'Newest' },
+                  { value: 'oldest', label: 'Oldest' },
+                  { value: 'highAmount', label: 'Highest' },
+                  { value: 'lowAmount', label: 'Lowest' },
+                ].map(opt => {
+                  const currentSort = historyTab === 'deposit' ? depositSort : bazarSort;
+                  const setSort = historyTab === 'deposit' ? setDepositSort : setBazarSort;
+                  const isSelected = currentSort === opt.value;
                   return (
-                    <tr key={userId} className={`${userId === userData?.uid ? 'bg-primary/5 border-l-4 border-l-primary font-semibold' : ''} ${isInactive ? 'opacity-60' : ''} hover:bg-primary/5 transition-colors`}>
-                      <td className="flex items-center gap-2">
-                        {stats.name}
-                        {userId === userData?.uid && <span className="badge badge-sm badge-primary">You</span>}
-                        {isInactive && <span className="badge badge-sm bg-gray-400 text-white border-none">Inactive</span>}
-                      </td>
-                      <td className="text-center">
-                        <span className={`badge badge-lg border-none font-semibold ${isInactive ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{stats.ownMeals || 0}</span>
-                      </td>
-                      <td className="text-center">
-                        <span className={`badge badge-lg border-none font-semibold ${isInactive ? 'bg-gray-200 text-gray-600' : 'bg-orange-100 text-orange-700'}`}>{stats.guestMeals || 0}</span>
-                      </td>
-                      <td className="text-center">
-                        <span className={`badge badge-lg border-none font-semibold ${isInactive ? 'bg-gray-200 text-gray-600' : 'bg-primary/20 text-primary'}`}>{stats.totalMeals}</span>
-                      </td>
-                      <td className="text-right font-semibold">৳{stats.deposit.toFixed(2)}</td>
-                      <td className="text-right font-semibold">৳{stats.cost.toFixed(2)}</td>
-                      <td className={`text-right font-bold ${stats.balance >= 0 ? 'text-success' : 'text-error'}`}>৳{stats.balance.toFixed(2)}</td>
-                    </tr>
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSort(opt.value)}
+                      className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1 rounded-full text-[11px] sm:text-[13px] font-semibold transition-all ${
+                        isSelected
+                          ? 'border-neutral text-base-content'
+                          : 'border-transparent text-base-content/60 hover:border-base-content/30'
+                      }`}
+                      style={isSelected ? { 
+                        backgroundColor: 'var(--fin-tile)',
+                        borderWidth: '1.5px',
+                        borderStyle: 'solid',
+                        borderColor: 'var(--color-neutral)'
+                      } : { 
+                        borderWidth: '1.5px',
+                        borderStyle: 'solid',
+                        borderColor: 'var(--fin-line)'
+                      }}
+                    >
+                      {opt.label}
+                    </button>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* 2 & 3. History Tabs */}
-      <div className="card bg-base-100 shadow-xl border-t-4 border-t-primary">
-        <div className="card-body">
-          {/* Tab Header */}
-          <div className="flex gap-2 mb-5 bg-base-200 p-1.5 rounded-xl">
-            <button
-              onClick={() => setHistoryTab('deposit')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                historyTab === 'deposit'
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
-                  : 'text-base-content/60 hover:text-green-600 hover:bg-green-500/10'
-              }`}
-            >
-              <FaHistory className="text-base" />
-              Deposit
-              {finance?.deposits?.length > 0 && (
-                <span className={`badge badge-xs ${historyTab === 'deposit' ? 'bg-white/30 text-white border-none' : 'badge-success'}`}>
-                  {finance.deposits.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setHistoryTab('bazar')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                historyTab === 'bazar'
-                  ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-md'
-                  : 'text-base-content/60 hover:text-primary hover:bg-primary/10'
-              }`}
-            >
-              <FaClipboardList className="text-base" />
-              Bazar
-              {finance?.bazarCosts?.length > 0 && (
-                <span className={`badge badge-xs ${historyTab === 'bazar' ? 'bg-white/30 text-white border-none' : 'badge-primary'}`}>
-                  {finance.bazarCosts.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Deposit Tab Content */}
-          {historyTab === 'deposit' && (
-            !finance?.deposits?.length ? (
-              <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
-                <FaHistory className="text-5xl mb-3" />
-                <p className="text-lg font-semibold">No deposits yet</p>
-                <p className="text-sm">Deposits added this month will appear here.</p>
               </div>
-            ) : (
-              <>
-                <div className="hidden md:block rounded-lg overflow-hidden">
-                  <table className="table table-zebra w-full table-fixed">
-                    <colgroup>
-                      <col className="w-1/3" />
-                      <col className="w-1/3" />
-                      <col className="w-1/3" />
-                      {isManager && <col className="w-20" />}
-                    </colgroup>
-                    <thead>
-                      <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                        <th className="font-bold">Date</th>
-                        <th className="font-bold text-left">Member</th>
-                        <th className="font-bold text-right">Amount</th>
-                        {isManager && <th className="font-bold text-center">Action</th>}
-                      </tr>
-                    </thead>
-                  </table>
-                  <div className="max-h-72 overflow-y-auto">
-                    <table className="table table-zebra w-full table-fixed">
-                      <colgroup>
-                        <col className="w-1/3" />
-                        <col className="w-1/3" />
-                        <col className="w-1/3" />
-                        {isManager && <col className="w-20" />}
-                      </colgroup>
-                      <tbody>
-                        {getDepositHistory().map((deposit) => (
-                          <tr key={deposit._id} className="hover:bg-green-500/5 transition-colors">
-                            <td><span className="badge badge-success text-white">{format(new Date(deposit.date), 'dd MMM yyyy')}</span></td>
-                            <td className="font-medium text-left">{deposit.memberName}{deposit.userId === userData?.uid && <span className="badge badge-sm badge-primary ml-2">You</span>}</td>
-                            <td className="text-right font-bold text-green-600">৳{deposit.amount.toFixed(2)}</td>
-                            {isManager && (
-                              <td className="text-center">
-                                <button className={`btn btn-xs btn-error btn-outline ${deletingDepositId === deposit._id ? 'loading' : ''}`} onClick={() => handleDeleteDeposit(deposit._id)} disabled={deletingDepositId === deposit._id}>
-                                  {deletingDepositId !== deposit._id && <FaTrash />}
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <table className="table w-full table-fixed">
-                    <colgroup>
-                      <col className="w-1/3" />
-                      <col className="w-1/3" />
-                      <col className="w-1/3" />
-                      {isManager && <col className="w-20" />}
-                    </colgroup>
-                    <tfoot>
-                      <tr className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold">
-                        <td colSpan={2}>Total Deposits</td>
-                        <td className="text-right text-lg">৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</td>
-                        {isManager && <td></td>}
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <div className="md:hidden space-y-3 max-h-96 overflow-y-auto pr-1">
-                  {getDepositHistory().map((deposit) => (
-                    <div key={deposit._id} className="card bg-base-200 shadow-md">
-                      <div className="card-body p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-base-content">{deposit.memberName}{deposit.userId === userData?.uid && <span className="badge badge-sm badge-primary ml-2">You</span>}</p>
-                            <span className="badge badge-sm badge-success text-white mt-1">{format(new Date(deposit.date), 'dd MMM yyyy')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-green-600">৳{deposit.amount.toFixed(2)}</span>
-                            {isManager && (
-                              <button className={`btn btn-xs btn-error btn-outline ${deletingDepositId === deposit._id ? 'loading' : ''}`} onClick={() => handleDeleteDeposit(deposit._id)} disabled={deletingDepositId === deposit._id}>
-                                {deletingDepositId !== deposit._id && <FaTrash />}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="md:hidden card bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg mt-2">
-                  <div className="card-body p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold">Total Deposits</span>
-                      <span className="text-2xl font-bold">{'৳'}{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )
-          )}
+            </div>
+          </div>
+        )}
 
-          {/* Bazar Tab Content */}
-          {historyTab === 'bazar' && (
-            !finance?.bazarCosts?.length ? (
-              <div className="flex flex-col items-center justify-center py-10 text-base-content/40">
-                <FaClipboardList className="text-5xl mb-3" />
-                <p className="text-lg font-semibold">No bazar entries yet</p>
-                <p className="text-sm">Bazar costs added this month will appear here.</p>
-              </div>
-            ) : (
-              <>
-                <div className="hidden md:block rounded-lg overflow-hidden">
-                  <table className="table table-zebra w-full table-fixed">
-                    <colgroup>
-                      <col className="w-36" />
-                      <col className="w-40" />
-                      <col />
-                      {isManager && <col className="w-20" />}
-                    </colgroup>
-                    <thead>
-                      <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
-                        <th className="font-bold">Date</th>
-                        <th className="font-bold text-right pr-8">Amount</th>
-                        <th className="font-bold">Description</th>
-                        {isManager && <th className="font-bold text-center">Action</th>}
-                      </tr>
-                    </thead>
-                  </table>
-                  <div className="max-h-72 overflow-y-auto">
-                    <table className="table table-zebra w-full table-fixed">
-                      <colgroup>
-                        <col className="w-36" />
-                        <col className="w-40" />
-                        <col />
-                        {isManager && <col className="w-20" />}
-                      </colgroup>
-                      <tbody>
-                        {[...finance.bazarCosts].sort((a, b) => new Date(b.date) - new Date(a.date)).map((bazar, index) => (
-                          <tr key={index} className="hover:bg-primary/5 transition-colors">
-                            <td><span className="badge badge-primary badge-outline whitespace-nowrap">{format(new Date(bazar.date), 'dd MMM yyyy')}</span></td>
-                            <td className="text-right font-bold text-primary pr-8">৳{bazar.amount.toFixed(2)}</td>
-                            <td className="text-base-content/70 truncate">{bazar.description || '-'}</td>
-                            {isManager && (
-                              <td className="text-center">
-                                <button className={`btn btn-xs btn-error btn-outline ${deletingBazarId === bazar._id ? 'loading' : ''}`} onClick={() => handleDeleteBazar(bazar._id)} disabled={deletingBazarId === bazar._id} title="Delete">
-                                  {deletingBazarId !== bazar._id && <FaTrash />}
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <table className="table w-full table-fixed">
-                    <colgroup>
-                      <col className="w-36" />
-                      <col className="w-40" />
-                      <col />
-                      {isManager && <col className="w-20" />}
-                    </colgroup>
-                    <tfoot>
-                      <tr className="bg-gradient-to-r from-primary to-blue-600 text-white font-bold">
-                        <td>Total</td>
-                        <td className="text-right text-lg pr-8">৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</td>
-                        <td></td>
-                        {isManager && <td></td>}
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <div className="md:hidden space-y-3 max-h-96 overflow-y-auto pr-1">
-                  {[...finance.bazarCosts].sort((a, b) => new Date(b.date) - new Date(a.date)).map((bazar, index) => (
-                    <div key={index} className="card bg-base-200 shadow-md">
-                      <div className="card-body p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="badge badge-primary whitespace-nowrap">{format(new Date(bazar.date), 'dd MMM yyyy')}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-primary">৳{bazar.amount.toFixed(2)}</span>
-                            {isManager && (
-                              <button className={`btn btn-xs btn-error btn-outline ${deletingBazarId === bazar._id ? 'loading' : ''}`} onClick={() => handleDeleteBazar(bazar._id)} disabled={deletingBazarId === bazar._id}>
-                                {deletingBazarId !== bazar._id && <FaTrash />}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-base-content/70">{bazar.description || 'No description'}</p>
-                      </div>
-                    </div>
+        {/* Deposit Tab Content */}
+        {historyTab === 'deposit' && (
+          !finance?.deposits?.length ? (
+            <div className="flex flex-col items-center justify-center py-12 text-base-content/40">
+              <FaHistory className="text-5xl mb-3" />
+              <p className="text-base font-semibold">No deposits yet</p>
+              <p className="text-sm">Deposits added this month will appear here</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Deposit history table">
+              <table className="w-full min-w-[500px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
+                  <tr>
+                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
+                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Member</th>
+                    <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
+                    {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {getDepositHistory().map((deposit, idx) => (
+                    <tr key={deposit._id} style={{
+                      backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
+                      borderBottom: '1px solid var(--fin-line)'
+                    }}>
+                      <td className="px-4 py-3">
+                        <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                          {format(new Date(deposit.date), 'dd MMM yyyy')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-base-content">
+                        {deposit.memberName}
+                        {deposit.userId === userData?.uid && (
+                          <span className="ml-2 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                            You
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
+                        ৳{deposit.amount.toFixed(2)}
+                      </td>
+                      {isManager && (
+                        <td className="text-right px-4 py-3">
+                          <button
+                            className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingDepositId === deposit._id ? 'opacity-50' : ''}`}
+                            style={{
+                              border: `1.5px solid ${deletingDepositId === deposit._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
+                              color: 'var(--fin-neg)'
+                            }}
+                            onClick={() => handleDeleteDeposit(deposit._id)}
+                            disabled={deletingDepositId === deposit._id}
+                            aria-label="Delete deposit"
+                          >
+                            {deletingDepositId === deposit._id ? '...' : <FaTrash className="text-xs" />}
+                          </button>
+                        </td>
+                      )}
+                    </tr>
                   ))}
-                </div>
-                <div className="md:hidden card bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg mt-2">
-                  <div className="card-body p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold">Total Bazar</span>
-                      <span className="text-2xl font-bold">{'৳'}{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )
-          )}
-        </div>
+                </tbody>
+                <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
+                  <tr>
+                    <td className="px-4 py-3 font-bold text-base-content" colSpan={2}>Total Deposits</td>
+                    <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
+                      ৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
+                    </td>
+                    {isManager && <td></td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )
+        )}
+
+        {/* Bazar Tab Content */}
+        {historyTab === 'bazar' && (
+          !finance?.bazarCosts?.length ? (
+            <div className="flex flex-col items-center justify-center py-12 text-base-content/40">
+              <FaClipboardList className="text-5xl mb-3" />
+              <p className="text-base font-semibold">No bazar entries yet</p>
+              <p className="text-sm">Bazar costs added this month will appear here</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Bazar history table">
+              <table className="w-full min-w-[620px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
+                  <tr>
+                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
+                    <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
+                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Description</th>
+                    {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...finance.bazarCosts].sort(sortFns[bazarSort]).map((bazar, idx) => (
+                    <tr key={bazar._id} style={{
+                      backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
+                      borderBottom: '1px solid var(--fin-line)'
+                    }}>
+                      <td className="px-4 py-3">
+                        <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                          {format(new Date(bazar.date), 'dd MMM yyyy')}
+                        </span>
+                      </td>
+                      <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
+                        ৳{bazar.amount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-base-content/70 text-sm">
+                        {bazar.description || '−'}
+                      </td>
+                      {isManager && (
+                        <td className="text-right px-4 py-3">
+                          <button
+                            className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingBazarId === bazar._id ? 'opacity-50' : ''}`}
+                            style={{
+                              border: `1.5px solid ${deletingBazarId === bazar._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
+                              color: 'var(--fin-neg)'
+                            }}
+                            onClick={() => handleDeleteBazar(bazar._id)}
+                            disabled={deletingBazarId === bazar._id}
+                            aria-label="Delete bazar entry"
+                          >
+                            {deletingBazarId === bazar._id ? '...' : <FaTrash className="text-xs" />}
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
+                  <tr>
+                    <td className="px-4 py-3 font-bold text-base-content">Total Bazar</td>
+                    <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
+                      ৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
+                    </td>
+                    <td></td>
+                    {isManager && <td></td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )
+        )}
       </div>
 
 
-
-      {/* 4. Financial Analytics — last */}
+      {/* Financial Analytics */}
       {summary && (
-        <div className="space-y-6">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
-              Financial Analytics
-            </h2>
-            <p className="text-base-content/60">Visual insights into your group's finances</p>
+        <div className="space-y-4">
+          <div className="text-center">
+            <h2 className="text-[28px] font-extrabold text-base-content">Financial Analytics</h2>
+            <p className="text-sm text-base-content/60 mt-1">Visual insights into your group's finances</p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 1. Deposit vs Cost Analysis - Enhanced */}
-            <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-2xl border border-blue-200/50 dark:border-blue-800/50 hover:shadow-blue-500/20 transition-all duration-300">
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
-                    <FaMoneyBillWave className="text-2xl text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-blue-700 dark:text-blue-400">Deposit vs Cost Analysis</h3>
-                    <p className="text-sm text-base-content/60">Compare member contributions</p>
-                  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px]">
+            {/* 1. Deposit vs Cost Analysis */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                  <FaMoneyBillWave className="text-xl" />
                 </div>
-                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getMemberChartData()}>
-                      <defs>
-                        <linearGradient id="depositGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.7} />
-                        </linearGradient>
-                        <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="#dc2626" stopOpacity={0.7} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke={chartAxisColor} 
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <YAxis 
-                        stroke={chartAxisColor}
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
-                      <Legend 
-                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
-                        iconType="circle"
-                      />
-                      <Bar 
-                        dataKey="deposit" 
-                        fill="url(#depositGradient)" 
-                        name="Deposit" 
-                        radius={[8, 8, 0, 0]}
-                        maxBarSize={60}
-                      />
-                      <Bar 
-                        dataKey="cost" 
-                        fill="url(#costGradient)" 
-                        name="Cost" 
-                        radius={[8, 8, 0, 0]}
-                        maxBarSize={60}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="flex-1">
+                  <h3 className="text-[19px] font-bold text-base-content leading-none">Deposit vs Cost Analysis</h3>
+                  <p className="text-[13px] text-base-content/60 mt-0.5">Compare member contributions</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={240} minHeight={220}>
+                <BarChart data={getMemberChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--fin-line)" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <YAxis 
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <Tooltip 
+                    content={<CustomTooltip />}
+                    cursor={{ fill: 'var(--fin-tile)' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '12px', fontSize: '11px' }}
+                    iconType="square"
+                    iconSize={10}
+                  />
+                  <Bar 
+                    dataKey="deposit" 
+                    name="Deposit"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={60}
+                    style={{ fill: 'var(--fin-c1)' }}
+                  />
+                  <Bar 
+                    dataKey="cost" 
+                    name="Cost"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={60}
+                    style={{ fill: 'var(--fin-c2)' }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 2. Member Balance Overview */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                  <FaChartLine className="text-xl" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[19px] font-bold text-base-content leading-none">Member Balance Overview</h3>
+                  <p className="text-[13px] text-base-content/60 mt-0.5">Track financial standing</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={240} minHeight={220}>
+                <AreaChart data={getMemberChartData()}>
+                  <defs>
+                    <linearGradient id="balancePos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--fin-pos)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--fin-pos)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="balanceNeg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--fin-neg)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--fin-neg)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--fin-line)" vertical={false} />
+                  <XAxis 
+                    dataKey="name"
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <YAxis 
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="balance" 
+                    name="Balance"
+                    strokeWidth={2}
+                    fill="url(#balancePos)"
+                    style={{ stroke: 'var(--fin-pos)' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 3. Meal Distribution */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                  <FaUtensils className="text-xl" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[19px] font-bold text-base-content leading-none">Meal Distribution</h3>
+                  <p className="text-[13px] text-base-content/60 mt-0.5">Member meal consumption</p>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row items-center gap-4">
+                <ResponsiveContainer width="100%" height={220} className="flex-shrink-0" style={{ maxWidth: '280px' }}>
+                  <PieChart>
+                    <Pie 
+                      data={getMealDistributionData().filter(d => d.value > 0)}
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={false}
+                    >
+                      {getMealDistributionData().filter(d => d.value > 0).map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`}
+                          style={{ 
+                            fill: `var(--fin-s${(index % 4) + 1})`,
+                            stroke: 'var(--color-base-200)',
+                            strokeWidth: 2
+                          }}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <text 
+                      x="50%" 
+                      y="50%" 
+                      textAnchor="middle" 
+                      dominantBaseline="middle" 
+                      style={{ 
+                        fontSize: '24px', 
+                        fontWeight: 'bold',
+                        fill: 'var(--color-base-content)'
+                      }}
+                    >
+                      {summary.totalMeals}
+                    </text>
+                    <text 
+                      x="50%" 
+                      y="58%" 
+                      textAnchor="middle" 
+                      dominantBaseline="middle" 
+                      style={{ 
+                        fontSize: '11px',
+                        fill: 'color-mix(in oklab, var(--color-base-content) 60%, transparent)'
+                      }}
+                    >
+                      meals
+                    </text>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-2 w-full">
+                  {getMealDistributionData().filter(d => d.value > 0).map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-[10px] h-[10px] rounded-sm shrink-0" style={{ backgroundColor: `var(--fin-s${(index % 4) + 1})` }} />
+                      <span className="text-sm text-base-content flex-1 truncate">{entry.name}</span>
+                      <span className="text-sm font-bold text-base-content tabular-nums">
+                        {((entry.value / summary.totalMeals) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* 2. Member Balance Overview - Enhanced */}
-            <div className="card bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 shadow-2xl border border-emerald-200/50 dark:border-emerald-800/50 hover:shadow-emerald-500/20 transition-all duration-300">
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-3 rounded-xl shadow-lg">
-                    <FaChartLine className="text-2xl text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-400">Member Balance Overview</h3>
-                    <p className="text-sm text-base-content/60">Track financial standing</p>
-                  </div>
+            {/* 4. Own vs Guest Meals */}
+            <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[18px]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                  <FaUsers className="text-xl" />
                 </div>
-                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={getMemberChartData()}>
-                      <defs>
-                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke={chartAxisColor}
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <YAxis 
-                        stroke={chartAxisColor}
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 2 }} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="balance" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorBalance)" 
-                        name="Balance"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="flex-1">
+                  <h3 className="text-[19px] font-bold text-base-content leading-none">Own vs Guest Meals</h3>
+                  <p className="text-[13px] text-base-content/60 mt-0.5">Meal type comparison</p>
                 </div>
               </div>
-            </div>
-
-            {/* 3. Meal Distribution - Enhanced Pie Chart */}
-            <div className="card bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 shadow-2xl border border-purple-200/50 dark:border-purple-800/50 hover:shadow-purple-500/20 transition-all duration-300">
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-xl shadow-lg">
-                    <FaUtensils className="text-2xl text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-purple-700 dark:text-purple-400">Meal Distribution</h3>
-                    <p className="text-sm text-base-content/60">Member meal consumption</p>
-                  </div>
-                </div>
-                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <defs>
-                        {COLORS.map((color, index) => (
-                          <linearGradient key={index} id={`pieGradient${index}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={color} stopOpacity={1} />
-                            <stop offset="100%" stopColor={color} stopOpacity={0.7} />
-                          </linearGradient>
-                        ))}
-                      </defs>
-                      <Pie 
-                        data={getMealDistributionData()} 
-                        cx="50%" 
-                        cy="50%" 
-                        labelLine={{
-                          stroke: chartAxisColor,
-                          strokeWidth: 1
-                        }}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={90}
-                        innerRadius={40}
-                        fill="#8884d8" 
-                        dataKey="value"
-                        paddingAngle={2}
-                      >
-                        {getMealDistributionData().map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={`url(#pieGradient${index % COLORS.length})`}
-                            stroke="white"
-                            strokeWidth={2}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        content={<CustomTooltip />}
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '2px solid #a855f7',
-                          borderRadius: '12px',
-                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Own vs Guest Meals - Enhanced */}
-            <div className="card bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 shadow-2xl border border-orange-200/50 dark:border-orange-800/50 hover:shadow-orange-500/20 transition-all duration-300">
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-3 rounded-xl shadow-lg">
-                    <FaUsers className="text-2xl text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-orange-700 dark:text-orange-400">Own vs Guest Meals</h3>
-                    <p className="text-sm text-base-content/60">Meal type comparison</p>
-                  </div>
-                </div>
-                <div className="bg-white/50 dark:bg-base-100/50 rounded-xl p-4 backdrop-blur-sm">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={getMemberChartData()}>
-                      <defs>
-                        <linearGradient id="ownMealsGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={1} />
-                        </linearGradient>
-                        <linearGradient id="guestMealsGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                          <stop offset="100%" stopColor="#ef4444" stopOpacity={1} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} opacity={0.3} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke={chartAxisColor}
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <YAxis 
-                        stroke={chartAxisColor}
-                        style={{ fontSize: '12px', fontWeight: '600' }}
-                      />
-                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                      <Legend 
-                        wrapperStyle={{ paddingTop: '20px', fontWeight: '600' }}
-                        iconType="circle"
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="ownMeals" 
-                        stroke="url(#ownMealsGradient)" 
-                        strokeWidth={4} 
-                        name="Own Meals" 
-                        dot={{ r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
-                        activeDot={{ r: 8, fill: '#3b82f6', strokeWidth: 3, stroke: '#fff' }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="guestMeals" 
-                        stroke="url(#guestMealsGradient)" 
-                        strokeWidth={4} 
-                        name="Guest Meals" 
-                        dot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
-                        activeDot={{ r: 8, fill: '#f59e0b', strokeWidth: 3, stroke: '#fff' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              <ResponsiveContainer width="100%" height={240} minHeight={220}>
+                <LineChart data={getMemberChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--fin-line)" vertical={false} />
+                  <XAxis 
+                    dataKey="name"
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <YAxis 
+                    tick={{ fill: 'color-mix(in oklab, var(--color-base-content) 70%, transparent)', fontSize: 11 }}
+                    stroke="var(--fin-line)"
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '12px', fontSize: '11px' }}
+                    iconType="circle"
+                    iconSize={10}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="ownMeals" 
+                    name="Own Meals"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, strokeWidth: 2 }}
+                    style={{ 
+                      stroke: 'var(--fin-c1)',
+                      fill: 'var(--fin-c1)'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="guestMeals" 
+                    name="Guest Meals"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, strokeWidth: 2 }}
+                    style={{ 
+                      stroke: 'var(--fin-c2)',
+                      fill: 'var(--fin-c2)'
+                    }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

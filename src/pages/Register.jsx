@@ -31,7 +31,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-primary/5 via-base-200 to-primary/10 py-8 px-4">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-base-100 py-8 px-4">
       <div className="w-full max-w-4xl flex flex-col lg:flex-row items-center gap-0 lg:gap-8">
 
         {/* Large screen: Playing chef on left */}
@@ -146,7 +146,7 @@ const Register = () => {
                 <div className="form-control mt-8">
                   <button
                     type="submit"
-                    className={"btn btn-primary w-full text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all " + (loading ? 'loading' : '')}
+                    className={"btn btn-primary text-white w-full text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all " + (loading ? 'loading' : '')}
                     disabled={loading}
                   >
                     {loading ? 'Creating account...' : 'Create Account'}

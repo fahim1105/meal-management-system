@@ -3,27 +3,35 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
 import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { FaPaperPlane } from 'react-icons/fa';
+import burgerToast from '../BurgerToast';
 
 const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const { userData } = useAuth();
   const typingTimeoutRef = useRef(null);
+  const userDataRef = useRef(userData);
+  const groupIdRef = useRef(groupId);
 
-  // Ensure groupId is a string
-  const groupIdString = groupId ? String(groupId) : null;
+  userDataRef.current = userData;
+  groupIdRef.current = groupId ? String(groupId) : null;
 
   const updateTypingStatus = async (isTyping) => {
-    if (!userData || !groupIdString) return;
+    const uid = userDataRef.current?.uid;
+    const gid = groupIdRef.current;
+    if (!uid || !gid) return;
 
     try {
-      const typingRef = doc(db, 'groups', groupIdString, 'typing', userData.uid);
-      
+      const typingRef = doc(db, 'groups', gid, 'typing', uid);
+
       if (isTyping) {
         await setDoc(typingRef, {
-          userId: userData.uid,
-          userName: userData.name || userData.displayName || userData.email,
-          timestamp: serverTimestamp()
+          userId: uid,
+          userName:
+            userDataRef.current.name ||
+            userDataRef.current.displayName ||
+            userDataRef.current.email,
+          timestamp: serverTimestamp(),
         });
       } else {
         await deleteDoc(typingRef);
@@ -36,16 +44,12 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
   const handleInputChange = (e) => {
     setMessage(e.target.value);
 
-    // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Set typing status
     if (e.target.value.trim()) {
       updateTypingStatus(true);
-
-      // Remove typing status after 3 seconds of no typing
       typingTimeoutRef.current = setTimeout(() => {
         updateTypingStatus(false);
       }, 3000);
@@ -60,8 +64,12 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
 
     setSending(true);
     await updateTypingStatus(false);
-    await onSend(message);
-    setMessage('');
+    const ok = await onSend(message);
+    if (ok !== false) {
+      setMessage('');
+    } else {
+      burgerToast.error('Failed to send message');
+    }
     setSending(false);
   };
 
@@ -72,7 +80,6 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
     }
   };
 
-  // Cleanup typing status on unmount
   useEffect(() => {
     return () => {
       updateTypingStatus(false);
@@ -84,7 +91,6 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
 
   return (
     <form onSubmit={handleSubmit} className="bg-gradient-to-r from-base-200 to-base-100 border-t border-base-300 shadow-inner">
-      {/* Reply Preview */}
       {replyingTo && (
         <div className="px-4 pt-3 pb-2 border-b border-base-300 bg-base-200/50">
           <div className="flex items-start gap-2 bg-base-100 rounded-lg p-3 border-l-4 border-primary">
@@ -106,7 +112,7 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
           </div>
         </div>
       )}
-      
+
       <div className="p-4">
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
@@ -121,11 +127,10 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
               style={{
                 minHeight: '48px',
                 maxHeight: '120px',
-                fontSize: '16px', // Prevent iOS zoom
-                overflowY: message.split('\n').length > 2 ? 'auto' : 'hidden'
+                fontSize: '16px',
+                overflowY: message.split('\n').length > 2 ? 'auto' : 'hidden',
               }}
             />
-            {/* Character count (optional) */}
             {message.length > 0 && (
               <span className="absolute bottom-2 right-3 text-xs text-base-content/40">
                 {message.length}
@@ -144,7 +149,6 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
             )}
           </button>
         </div>
-        {/* Hint text */}
         <p className="text-xs text-base-content/50 mt-2 ml-1">
           Press <kbd className="kbd kbd-xs">Shift</kbd> + <kbd className="kbd kbd-xs">Enter</kbd> for new line
         </p>

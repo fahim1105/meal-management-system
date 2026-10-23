@@ -86,7 +86,13 @@ router.post('/send-monthly-report', verifyToken, async (req, res) => {
 
     for (const member of activeMembers) {
       const email = await resolveMemberEmail(group, member.userId);
-      if (email) recipients.push({ ...member, email });
+      if (email) {
+        recipients.push({
+          userId: member.userId,
+          name: member.name,
+          email,
+        });
+      }
     }
 
     if (recipients.length === 0) {

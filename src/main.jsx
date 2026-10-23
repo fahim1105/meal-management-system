@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
+import './styles/theme.css'
 import App from './App'
 
 // Wake up backend immediately on app load to reduce cold start delay

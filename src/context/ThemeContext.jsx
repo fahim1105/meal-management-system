@@ -16,8 +16,20 @@ export const ThemeProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    
+    // Force class-based dark mode for proper color switching
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    
     localStorage.setItem('theme', theme);
+    
+    // Debug log
+    console.log('Theme changed to:', theme, 'Dark class:', root.classList.contains('dark'));
   }, [theme]);
 
   const toggleTheme = () => {

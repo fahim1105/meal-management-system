@@ -1,7 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
-import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  doc,
+  writeBatch,
+  arrayUnion,
+} from 'firebase/firestore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ChatHeader from './ChatHeader';
@@ -10,37 +21,18 @@ import PollCreator from './PollCreator';
 import { FaBullhorn, FaPoll } from 'react-icons/fa';
 import { objectIdToString, getDisplayName } from '../../lib/utils';
 
-const ChatContainer = ({ groupId, isManager, isMobile = false }) => {
+const ChatContainer = ({ groupId, isManager, isMobile = false, groupMembers = [] }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
-  const [onlineCount, setOnlineCount] = useState(0);
-  const [replyingTo, setReplyingTo] = useState(null); // Reply state
+  const [replyingTo, setReplyingTo] = useState(null);
   const { userData } = useAuth();
+  const markingReadRef = useRef(false);
 
-  // Convert groupId to string properly (handle MongoDB ObjectId)
   const groupIdString = objectIdToString(groupId);
-
-  // Check if user has access to this group (convert user's groupId properly too)
   const userGroupIdString = objectIdToString(userData?.groupId);
   const hasGroupAccess = userData?.groupId && userGroupIdString === groupIdString;
-
-  // Track online count
-  useEffect(() => {
-    if (!groupIdString || !hasGroupAccess) return;
-
-    const typingRef = collection(db, 'groups', groupIdString, 'typing');
-    const q = query(typingRef, where('timestamp', '>', new Date(Date.now() - 60000)));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOnlineCount(snapshot.size);
-    }, (error) => {
-      console.error('Typing listener error:', error);
-    });
-
-    return () => unsubscribe();
-  }, [groupIdString, hasGroupAccess]);
 
   useEffect(() => {
     if (!groupIdString || !hasGroupAccess) {
@@ -48,27 +40,66 @@ const ChatContainer = ({ groupId, isManager, isMobile = false }) => {
       return;
     }
 
-    // Real-time listener for messages
     const messagesRef = collection(db, 'groups', groupIdString, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(100));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = [];
-      snapshot.forEach((doc) => {
-        msgs.push({ id: doc.id, ...doc.data() });
-      });
-      setMessages(msgs.reverse()); // Reverse to show oldest first
-      setLoading(false);
-    }, (error) => {
-      console.error('Messages listener error:', error);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const msgs = [];
+        snapshot.forEach((docSnap) => {
+          msgs.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        setMessages(msgs.reverse());
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Messages listener error:', error);
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [groupIdString, hasGroupAccess]);
 
+  // Mark unread messages as read while chat is open
+  useEffect(() => {
+    if (!hasGroupAccess || !userData?.uid || !groupIdString || messages.length === 0) return;
+    if (markingReadRef.current) return;
+
+    const unread = messages.filter((m) => !m.readBy?.includes(userData.uid));
+    if (unread.length === 0) return;
+
+    let cancelled = false;
+    const markRead = async () => {
+      markingReadRef.current = true;
+      try {
+        // Firestore batch max 500
+        const chunk = unread.slice(0, 400);
+        const batch = writeBatch(db);
+        chunk.forEach((m) => {
+          batch.update(doc(db, 'groups', groupIdString, 'messages', m.id), {
+            readBy: arrayUnion(userData.uid),
+          });
+        });
+        if (!cancelled) await batch.commit();
+      } catch (err) {
+        console.error('Error marking messages read:', err);
+      } finally {
+        markingReadRef.current = false;
+      }
+    };
+
+    // Small delay so opening chat feels snappy; still clears badge quickly
+    const t = setTimeout(markRead, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [messages, userData?.uid, groupIdString, hasGroupAccess]);
+
   const handleSendMessage = async (content) => {
-    if (!content.trim() || !userData || !groupIdString || !hasGroupAccess) return;
+    if (!content.trim() || !userData || !groupIdString || !hasGroupAccess) return false;
 
     const senderName = getDisplayName(userData);
 
@@ -82,23 +113,24 @@ const ChatContainer = ({ groupId, isManager, isMobile = false }) => {
         content: content.trim(),
         timestamp: serverTimestamp(),
         readBy: [userData.uid],
-        reactions: {}
+        reactions: {},
       };
 
-      // Add reply data if replying
       if (replyingTo) {
         messageData.replyTo = {
           messageId: replyingTo.id,
           senderId: replyingTo.senderId,
           senderName: replyingTo.senderName,
-          content: replyingTo.content
+          content: replyingTo.content,
         };
       }
 
       await addDoc(messagesRef, messageData);
-      setReplyingTo(null); // Clear reply after sending
+      setReplyingTo(null);
+      return true;
     } catch (error) {
       console.error('Error sending message:', error);
+      return false;
     }
   };
 
@@ -125,22 +157,20 @@ const ChatContainer = ({ groupId, isManager, isMobile = false }) => {
   return (
     <div className={`${isMobile ? 'h-full' : 'card bg-base-100 shadow-xl border-t-4 border-t-purple-500'}`}>
       <div className={`${isMobile ? 'h-full' : 'card-body p-0 h-[calc(100vh-88px)]'} flex flex-col`}>
-        {/* Header */}
-        {!isMobile && <ChatHeader onlineCount={onlineCount} />}
+        {!isMobile && <ChatHeader />}
 
-        {/* Manager Actions */}
         {isManager && hasGroupAccess && (
           <div className="px-4 py-3 bg-gradient-to-r from-base-200/80 to-base-100 border-b border-base-300 flex flex-wrap gap-2 shadow-sm">
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="btn btn-sm bg-gradient-to-r from-warning to-orange-500 border-none text-white shadow-md hover:shadow-warning/50 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
+              className="btn btn-sm bg-warning border-none text-white shadow-md hover:bg-warning/90 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
             >
               <FaBullhorn />
               <span className="hidden sm:inline">Announcement</span>
             </button>
             <button
               onClick={() => setShowPollModal(true)}
-              className="btn btn-sm bg-gradient-to-r from-info to-blue-600 border-none text-white shadow-md hover:shadow-info/50 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
+              className="btn btn-sm bg-info border-none text-white shadow-md hover:bg-info/90 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
             >
               <FaPoll />
               <span className="hidden sm:inline">Create Poll</span>
@@ -148,24 +178,22 @@ const ChatContainer = ({ groupId, isManager, isMobile = false }) => {
           </div>
         )}
 
-        {/* Messages */}
-        <MessageList 
-          messages={messages} 
-          groupId={groupIdString} 
+        <MessageList
+          messages={messages}
+          groupId={groupIdString}
           isManager={isManager}
           onReply={setReplyingTo}
+          groupMembers={groupMembers}
         />
 
-        {/* Input */}
-        <MessageInput 
-          onSend={handleSendMessage} 
+        <MessageInput
+          onSend={handleSendMessage}
           groupId={groupIdString}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
         />
       </div>
 
-      {/* Modals */}
       {showAnnouncementModal && (
         <AnnouncementCreator
           groupId={groupIdString}

@@ -57,7 +57,7 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
 
   return (
     <div className="w-full">
-      <div className={`bg-gradient-to-r from-warning/20 to-warning/10 border-l-4 border-warning rounded-lg p-4 ${
+      <div className={`bg-gradient-to-r from-warning/30 to-warning/20 dark:from-warning/20 dark:to-warning/10 border-l-4 border-warning rounded-lg p-4 ${
         message.isPinned ? 'ring-2 ring-warning' : ''
       }`}>
         <div className="flex items-start gap-3">
@@ -113,7 +113,7 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
               </span>
               <span className="text-xs text-base-content/50">• {getTimeAgo()}</span>
             </div>
-            <p className="text-base-content font-medium whitespace-pre-wrap break-words">
+            <p className="text-base-content/90 dark:text-base-content font-medium whitespace-pre-wrap break-words">
               {message.content}
             </p>
           </div>

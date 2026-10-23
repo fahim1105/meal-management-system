@@ -278,11 +278,11 @@ const ManagerSettings = ({ group, onUpdate }) => {
         { newManagerId: selectedMember },
         { headers }
       );
-      
-      // Refresh user data to get updated manager status
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.group() });
+      await queryClient.refetchQueries({ queryKey: queryKeys.group() });
       await refreshUserToken();
-      
-      // Show success message
+
       await Swal.fire({
         title: 'Success!',
         text: 'Manager role transferred successfully',
@@ -295,10 +295,11 @@ const ManagerSettings = ({ group, onUpdate }) => {
         }
       });
 
-      // Navigate to home page
-      navigate('/');
+      // Navigate to home — no longer a manager
+      navigate('/', { replace: true });
     } catch (error) {
       burgerToast.error('Failed to transfer manager role');
+    } finally {
       setLoading(false);
     }
   };
@@ -502,7 +503,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-2xl shadow-lg">
+      <div className="bg-primary p-6 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-3 rounded-full">
             <FaShieldAlt className="text-3xl text-white" />
@@ -522,7 +523,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
             onClick={() => setActiveManagerTab(id)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 relative border-2 ${
               activeManagerTab === id
-                ? `${activeBorder} bg-gradient-to-br from-primary to-blue-600 text-white shadow-md shadow-primary/30 scale-[1.02]`
+                ? `${activeBorder} bg-primary text-primary-content shadow-md scale-[1.02]`
                 : `${inactiveBorder} text-base-content/50 hover:text-primary hover:bg-primary/10`
             }`}
           >
@@ -558,7 +559,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
           <div className="hidden md:block overflow-x-auto">
             <table className="table table-zebra">
               <thead>
-                <tr className="bg-gradient-to-r from-primary to-blue-600 text-white">
+                <tr className="bg-primary text-white">
                   <th className="font-bold">Name</th>
                   <th className="font-bold">Email</th>
                   <th className="font-bold text-center">Role</th>

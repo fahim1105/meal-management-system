@@ -6,7 +6,8 @@ import {
   onAuthStateChanged,
   updatePassword,
   EmailAuthProvider,
-  reauthenticateWithCredential
+  reauthenticateWithCredential,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import axios from 'axios';
@@ -124,13 +125,24 @@ export const AuthProvider = ({ children }) => {
       let photoURL = userData?.photoURL || null;
 
       if (photoFile) {
-        const formData = new FormData();
-        formData.append('image', photoFile);
-        const imgbbRes = await axios.post(
-          `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`,
-          formData
-        );
-        photoURL = imgbbRes.data.data.url;
+        const imgbbKey = import.meta.env.VITE_IMGBB_API_KEY;
+        if (!imgbbKey) {
+          burgerToast.error('Image upload is not configured');
+          throw new Error('IMGBB API key not set');
+        }
+        try {
+          const formData = new FormData();
+          formData.append('image', photoFile);
+          const imgbbRes = await axios.post(
+            `https://api.imgbb.com/1/upload?key=${imgbbKey}`,
+            formData
+          );
+          photoURL = imgbbRes.data.data.url;
+        } catch (uploadErr) {
+          console.error('Image upload failed:', uploadErr);
+          burgerToast.error('Failed to upload photo. Check your internet connection.');
+          throw uploadErr;
+        }
       }
 
       const res = await axios.put(`${API_URL}/auth/profile`, { name, photoURL }, { headers });
@@ -160,6 +172,20 @@ export const AuthProvider = ({ children }) => {
         burgerToast.error('Current password is incorrect');
       } else {
         burgerToast.error('Failed to change password');
+      }
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      burgerToast.success('Password reset email sent! Check your inbox.');
+    } catch (error) {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        burgerToast.error('No account found with this email address');
+      } else {
+        burgerToast.error('Failed to send reset email. Try again.');
       }
       throw error;
     }
@@ -224,6 +250,7 @@ export const AuthProvider = ({ children }) => {
     userDataLoading,
     updateProfileData,
     changePassword,
+    resetPassword,
     refreshUserToken,
     checkTokenClaims
   };

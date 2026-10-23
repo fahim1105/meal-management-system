@@ -274,11 +274,13 @@ export const sendFineApprovedEmail = async ({
   finedName,
   toRequester,
   requesterName,
+  managerName,
   approvedByManager, // true if manager directly added (no requester)
   amount,
   reason,
   month,
 }) => {
+  const managerLabel = `${managerName || 'Manager'} (Manager)`;
   if (!isEmailConfigured()) {
     throw new Error('Email service is not configured');
   }
@@ -298,7 +300,7 @@ export const sendFineApprovedEmail = async ({
         </div>
         <div style="padding:28px 24px;">
           <p style="font-size:16px;color:#1e293b;">Dear ${finedName},</p>
-          <p style="color:#475569;line-height:1.7;">A fine has been issued against you${approvedByManager ? ' by the manager' : ' and approved by the manager'}.</p>
+          <p style="color:#475569;line-height:1.7;">A fine has been issued against you${approvedByManager ? ` by ${managerLabel}` : ` and approved by ${managerLabel}`}.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;margin:20px 0;font-size:14px;">
             <tr>
               <td style="padding:12px 16px;border-bottom:1px solid #fde68a;color:#92400e;font-weight:bold;width:40%;">Amount</td>
@@ -310,7 +312,7 @@ export const sendFineApprovedEmail = async ({
             </tr>
             <tr>
               <td style="padding:12px 16px;color:#92400e;font-weight:bold;">Issued by</td>
-              <td style="padding:12px 16px;color:#1e293b;text-align:right;">${approvedByManager ? 'Manager' : requesterName}</td>
+              <td style="padding:12px 16px;color:#1e293b;text-align:right;">${approvedByManager ? managerLabel : requesterName}</td>
             </tr>
           </table>
           <p style="color:#64748b;font-size:13px;">This fine is recorded separately from your meal balance.</p>
@@ -335,7 +337,7 @@ export const sendFineApprovedEmail = async ({
         </div>
         <div style="padding:28px 24px;">
           <p style="font-size:16px;color:#1e293b;">Dear ${requesterName},</p>
-          <p style="color:#475569;line-height:1.7;">Your fine request has been <strong>approved</strong> by the manager.</p>
+          <p style="color:#475569;line-height:1.7;">Your fine request has been <strong>approved</strong> by ${managerLabel}.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin:20px 0;font-size:14px;">
             <tr>
               <td style="padding:12px 16px;border-bottom:1px solid #bbf7d0;color:#166534;font-weight:bold;width:40%;">Fined Member</td>

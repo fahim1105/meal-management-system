@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import { useEffect, useRef, useState } from 'react';
 import {
   FaHome, FaTachometerAlt, FaHistory, FaUsers,
   FaSignInAlt, FaPowerOff,
@@ -18,19 +19,19 @@ const DockItem = ({ to, icon: Icon, label, onClick, invisible }) => {
       <div
         className={`flex items-center justify-center rounded-xl transition-all duration-300
           ${isActive
-            ? 'bg-white/30 text-white shadow-lg shadow-white/20 scale-110 -translate-y-0.5'
-            : 'text-white/70 hover:text-white hover:bg-white/15'
+            ? 'bg-[#D6BD98]/30 text-[#D6BD98] shadow-lg shadow-[#D6BD98]/20 scale-110 -translate-y-0.5'
+            : 'text-[#D6BD98]/70 hover:text-[#D6BD98] hover:bg-[#D6BD98]/15'
           }
         `}
         style={{ width: 40, height: 40 }}
       >
         <Icon className="text-lg" />
       </div>
-      <span className={`text-[10px] font-semibold leading-none transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/60'}`}>
+      <span className={`text-[10px] font-semibold leading-none transition-colors duration-200 ${isActive ? 'text-[#D6BD98]' : 'text-[#D6BD98]/60'}`}>
         {label}
       </span>
       {isActive && (
-        <div className="w-1 h-1 rounded-full bg-white mt-0.5" />
+        <div className="w-1 h-1 rounded-full bg-[#D6BD98] mt-0.5" />
       )}
     </div>
   );
@@ -47,16 +48,46 @@ const DockItem = ({ to, icon: Icon, label, onClick, invisible }) => {
 };
 
 const DockSeparator = () => (
-  <div className="w-px h-10 bg-white/20 mx-1 self-center" />
+  <div className="w-px h-10 bg-[#D6BD98]/20 mx-1 self-center" />
 );
 
 const BottomDock = () => {
   const { currentUser, logout, userData, userDataLoading } = useAuth();
   const hasGroup = !!userData?.groupId;
 
+  const [visible, setVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const THRESHOLD = 6; // px — ignore tiny bounces
+
+    const onScroll = () => {
+      const current = window.scrollY;
+      const diff = current - lastScrollY.current;
+
+      if (Math.abs(diff) < THRESHOLD) return;
+
+      if (diff > 0 && current > 60) {
+        // scrolling down and not at the very top
+        setVisible(false);
+      } else {
+        // scrolling up
+        setVisible(true);
+      }
+
+      lastScrollY.current = current;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-end gap-2 px-5 py-2 rounded-2xl bg-gradient-to-r from-primary to-blue-600 shadow-2xl shadow-primary/30 border border-white/10">
+    <div
+      className={`lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300
+        ${visible ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-28 opacity-0 pointer-events-none'}`}
+    >
+      <div className="flex items-end gap-2 px-5 py-2 rounded-2xl bg-[#5C7057] shadow-2xl shadow-[#5C7057]/30 border border-[#D6BD98]/10">
 
         {/* Slot 1 — Home (always) */}
         <DockItem to="/" icon={FaHome} label="Home" />
@@ -69,7 +100,7 @@ const BottomDock = () => {
                   {[0, 1, 2].map(i => (
                     <span
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-white/70"
+                      className="w-1.5 h-1.5 rounded-full bg-[#D6BD98]/70"
                       style={{ animation: `dock-dot 1.2s ease-in-out ${i * 0.2}s infinite` }}
                     />
                   ))}
@@ -94,7 +125,7 @@ const BottomDock = () => {
           <div className="flex items-center justify-center" style={{ width: 40, height: 40 }}>
             <ThemeToggle />
           </div>
-          <span className="text-[10px] font-semibold text-white/60 leading-none">Theme</span>
+          <span className="text-[10px] font-semibold text-[#D6BD98]/60 leading-none">Theme</span>
         </div>
 
         {/* Slot 4 — Logout or Sign In */}

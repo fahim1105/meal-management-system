@@ -2,14 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, runTransaction } from 'firebase/firestore';
 import { FaReply, FaSmile } from 'react-icons/fa';
 import ReactionTooltip from './ReactionTooltip';
 import { formatMessageTime } from './formatMessageTime';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+const PICKER_WIDTH = 240;
 
-const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId, setActiveReactionMessageId, allMessages = [] }) => {
+const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId, setActiveReactionMessageId, allMessages = [], groupMembers = [] }) => {
   const [showReactions, setShowReactions] = useState(false);
   const [showReactionTooltip, setShowReactionTooltip] = useState(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -17,108 +18,104 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [reactionPosition, setReactionPosition] = useState('below');
-  const [userNames, setUserNames] = useState({}); // Store user names
+  const [pickerCoords, setPickerCoords] = useState({ top: 0, left: 0 });
+  const [userNames, setUserNames] = useState({});
   const { userData } = useAuth();
   const reactionPickerRef = useRef(null);
   const contextMenuRef = useRef(null);
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
   const touchStartTime = useRef(0);
   const longPressTimer = useRef(null);
+  const isSwipingRef = useRef(false);
+  const swipeOffsetRef = useRef(0);
   const messageRef = useRef(null);
   const bubbleRef = useRef(null);
+
+  const closeReactions = () => {
+    setShowReactions(false);
+    if (activeReactionMessageId === message.id) {
+      setActiveReactionMessageId(null);
+    }
+  };
+
+  const openReactionPicker = () => {
+    if (activeReactionMessageId && activeReactionMessageId !== message.id) {
+      setActiveReactionMessageId(null);
+    }
+
+    if (bubbleRef.current) {
+      const rect = bubbleRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const below = rect.top < viewportHeight / 2;
+      setReactionPosition(below ? 'below' : 'above');
+
+      let left = isOwn ? rect.right - PICKER_WIDTH : rect.left;
+      left = Math.max(8, Math.min(left, viewportWidth - PICKER_WIDTH - 8));
+      const top = below ? rect.bottom + 8 : rect.top - 48;
+      setPickerCoords({ top, left });
+    } else {
+      setReactionPosition('below');
+    }
+
+    setActiveReactionMessageId(message.id);
+    setShowReactions(true);
+  };
 
   // Handle swipe gesture for reply (WhatsApp style)
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     touchStartTime.current = Date.now();
+    isSwipingRef.current = false;
+    swipeOffsetRef.current = 0;
     setIsSwiping(false);
+    setSwipeOffset(0);
 
-    // Start long press timer for reaction picker (mobile only)
     longPressTimer.current = setTimeout(() => {
-      // Only show reactions if not swiping
-      if (!isSwiping && swipeOffset === 0) {
-        // Close any other open reaction modal first
-        if (activeReactionMessageId && activeReactionMessageId !== message.id) {
-          setActiveReactionMessageId(null);
-        }
-        
-        // Calculate position for reaction picker
-        if (bubbleRef.current) {
-          const rect = bubbleRef.current.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          
-          // If message is in top half, show reactions below; otherwise show above
-          if (rect.top < viewportHeight / 2) {
-            setReactionPosition('below');
-          } else {
-            setReactionPosition('above');
-          }
-        } else {
-          setReactionPosition('below');
-        }
-        
-        // Set this message as active and show reactions
-        setActiveReactionMessageId(message.id);
-        setShowReactions(true);
-        
-        // Haptic feedback
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
+      if (!isSwipingRef.current && swipeOffsetRef.current === 0) {
+        openReactionPicker();
+        if (navigator.vibrate) navigator.vibrate(50);
       }
-    }, 500); // 500ms long press
+    }, 500);
   };
 
   const handleTouchMove = (e) => {
-    if (!touchStartX.current) return;
+    if (touchStartX.current == null) return;
 
     const touchCurrentX = e.touches[0].clientX;
     const touchCurrentY = e.touches[0].clientY;
     const diffX = touchCurrentX - touchStartX.current;
     const diffY = touchCurrentY - touchStartY.current;
 
-    // Cancel long press if moving
     if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
     }
 
-    // Only swipe if horizontal movement is greater than vertical (not scrolling)
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+      isSwipingRef.current = true;
       setIsSwiping(true);
-      
-      // Only allow right swipe (positive diffX) and limit to 80px
-      if (diffX > 0 && diffX <= 80) {
-        setSwipeOffset(diffX);
-      } else if (diffX > 80) {
-        setSwipeOffset(80);
-      }
+      const offset = Math.max(0, Math.min(diffX, 80));
+      swipeOffsetRef.current = offset;
+      setSwipeOffset(offset);
     }
   };
 
   const handleTouchEnd = () => {
-    // Clear long press timer
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+
+    if (swipeOffsetRef.current > 50) {
+      handleReply();
+      if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    if (swipeOffset > 50) {
-      // Trigger reply if swiped more than 50px
-      handleReply();
-      // Haptic feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }
-    
-    // Reset swipe
     setSwipeOffset(0);
     setIsSwiping(false);
-    touchStartX.current = 0;
-    touchStartY.current = 0;
+    isSwipingRef.current = false;
+    swipeOffsetRef.current = 0;
+    touchStartX.current = null;
+    touchStartY.current = null;
     touchStartTime.current = 0;
   };
 
@@ -180,41 +177,16 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
   };
 
   const handleShowReactions = () => {
-    // Close any other open reaction modal first
-    if (activeReactionMessageId && activeReactionMessageId !== message.id) {
-      setActiveReactionMessageId(null);
-    }
-    
-    // Calculate position based on bubble location
-    if (bubbleRef.current) {
-      const rect = bubbleRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      
-      // If message is in top half, show reactions below; otherwise show above
-      if (rect.top < viewportHeight / 2) {
-        setReactionPosition('below');
-      } else {
-        setReactionPosition('above');
-      }
-    } else {
-      // Default to below if ref not available
-      setReactionPosition('below');
-    }
-    
-    // Set this message as active and show reactions
-    setActiveReactionMessageId(message.id);
-    setShowReactions(true);
+    openReactionPicker();
     setShowContextMenu(false);
   };
 
   // Close reaction picker when clicking outside or pressing ESC
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Close reaction picker if clicking outside
       if (reactionPickerRef.current && !reactionPickerRef.current.contains(event.target)) {
-        setShowReactions(false);
+        closeReactions();
       }
-      // Close context menu if clicking outside
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
         setShowContextMenu(false);
       }
@@ -222,23 +194,21 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        setShowReactions(false);
+        closeReactions();
         setShowReactionTooltip(null);
         setShowContextMenu(false);
       }
     };
 
     const handleScroll = () => {
-      // Close tooltip on scroll
       setShowReactionTooltip(null);
-      setShowReactions(false);
+      closeReactions();
       setShowContextMenu(false);
     };
 
     if (showReactions || showReactionTooltip || showContextMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
-      // Listen for scroll on window and any scrollable parent
       window.addEventListener('scroll', handleScroll, true);
     }
 
@@ -250,7 +220,7 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
         clearTimeout(longPressTimer.current);
       }
     };
-  }, [showReactions, showReactionTooltip, showContextMenu]);
+  }, [showReactions, showReactionTooltip, showContextMenu, activeReactionMessageId, message.id]);
 
   // Close this message's reaction modal if another message's modal is opened
   useEffect(() => {
@@ -265,40 +235,35 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
 
     try {
       const messageRef = doc(db, 'groups', groupId, 'messages', message.id);
-      const currentReactions = message.reactions || {};
-      const userReactions = currentReactions[emoji] || [];
 
-      // Check if user already reacted with this emoji
-      const hasThisReaction = userReactions.includes(userData.uid);
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(messageRef);
+        if (!snap.exists()) return;
 
-      // Prepare updated reactions object
-      const updatedReactions = { ...currentReactions };
+        const data = snap.data();
+        const currentReactions = { ...(data.reactions || {}) };
+        const userReactions = currentReactions[emoji] || [];
+        const hasThisReaction = userReactions.includes(userData.uid);
 
-      // First, remove user from ALL reactions (single reaction per user)
-      Object.keys(updatedReactions).forEach((reactionEmoji) => {
-        updatedReactions[reactionEmoji] = (updatedReactions[reactionEmoji] || []).filter(
-          uid => uid !== userData.uid
-        );
-      });
-
-      // If user didn't have this reaction, add it (if they did, it stays removed = toggle off)
-      if (!hasThisReaction) {
-        updatedReactions[emoji] = [...(updatedReactions[emoji] || []), userData.uid];
-      }
-
-      // Update the document
-      await updateDoc(messageRef, {
-        reactions: updatedReactions
-      });
-
-      // Mark as read
-      if (!message.readBy?.includes(userData.uid)) {
-        await updateDoc(messageRef, {
-          readBy: arrayUnion(userData.uid)
+        Object.keys(currentReactions).forEach((reactionEmoji) => {
+          currentReactions[reactionEmoji] = (currentReactions[reactionEmoji] || []).filter(
+            (uid) => uid !== userData.uid
+          );
         });
-      }
 
-      setShowReactions(false);
+        if (!hasThisReaction) {
+          currentReactions[emoji] = [...(currentReactions[emoji] || []), userData.uid];
+        }
+
+        const updates = { reactions: currentReactions };
+        const readBy = data.readBy || [];
+        if (!readBy.includes(userData.uid)) {
+          updates.readBy = [...readBy, userData.uid];
+        }
+        transaction.update(messageRef, updates);
+      });
+
+      closeReactions();
       setShowContextMenu(false);
     } catch (error) {
       console.error('Error adding reaction:', error);
@@ -334,23 +299,33 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
 
     if (allReactions.length === 0) return;
 
-    // Build user names from available message data (no Firestore needed)
+    // Build user names — priority: groupMembers → allMessages → fallback
     const newUserNames = { ...userNames };
     
     Array.from(userIds).forEach(userId => {
       if (!newUserNames[userId] && userId !== userData?.uid) {
-        // Look for this user in all messages to find their name
-        const userMessage = allMessages.find(msg => msg.senderId === userId);
-        
-        if (userMessage && userMessage.senderName) {
-          newUserNames[userId] = userMessage.senderName;
-        } else if (message.senderId === userId) {
-          // Fallback to current message sender name
-          newUserNames[userId] = message.senderName || 'User';
-        } else {
-          // Last resort - generic name
-          newUserNames[userId] = 'User';
+        // 1. Check group members first (most reliable)
+        const groupMember = groupMembers.find(m => m.userId === userId);
+        if (groupMember?.name) {
+          newUserNames[userId] = groupMember.name;
+          return;
         }
+
+        // 2. Look in message history
+        const userMessage = allMessages.find(msg => msg.senderId === userId);
+        if (userMessage?.senderName) {
+          newUserNames[userId] = userMessage.senderName;
+          return;
+        }
+
+        // 3. Check current message sender
+        if (message.senderId === userId && message.senderName) {
+          newUserNames[userId] = message.senderName;
+          return;
+        }
+
+        // 4. Last resort
+        newUserNames[userId] = 'Unknown';
       }
     });
 
@@ -424,38 +399,62 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
 
         {/* Message bubble with time inside */}
         <div className="relative">
-          <div
-            ref={bubbleRef}
-            className={`px-3 py-2 rounded-2xl touch-feedback relative ${
-              isOwn
-                ? 'bg-primary text-primary-content rounded-br-sm'
-                : 'bg-base-200 text-base-content rounded-bl-sm'
-            } transition-transform`}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onContextMenu={handleContextMenu}
-          >
-            {/* Reply Preview */}
-            {message.replyTo && (
-              <div className={`mb-2 pb-2 pl-3 pr-2 py-2 rounded-lg ${
-                isOwn 
-                  ? 'bg-primary-content/10 border-l-4 border-primary-content/40' 
-                  : 'bg-primary/10 border-l-4 border-primary'
-              }`}>
-                <p className={`text-[10px] font-bold mb-0.5 ${isOwn ? 'text-primary-content' : 'text-primary'}`}>
-                  {message.replyTo.senderId === userData?.uid ? 'You' : message.replyTo.senderName}
-                </p>
-                <p className={`text-xs ${isOwn ? 'text-primary-content/70' : 'text-base-content/70'} line-clamp-2`}>
-                  {message.replyTo.content}
-                </p>
-              </div>
-            )}
-            
-            <p className="text-sm whitespace-pre-wrap break-words pr-12 pb-3">{message.content}</p>
-            <span className={`absolute bottom-1 right-2 text-[10px] ${isOwn ? 'text-primary-content/60' : 'text-base-content/50'} whitespace-nowrap`}>
-              {getTimeAgo()}
-            </span>
+          <div className={`group/msg ${isOwn ? 'flex flex-row-reverse' : 'flex flex-row'} items-center gap-1`}>
+            <div
+              ref={bubbleRef}
+              className={`px-3 py-2 rounded-2xl touch-feedback relative ${
+                isOwn
+                  ? 'bg-[#5C7057] text-white rounded-br-sm'
+                  : 'bg-base-300 dark:bg-base-200 text-base-content rounded-bl-sm'
+              } transition-transform`}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onContextMenu={handleContextMenu}
+            >
+              {/* Reply Preview */}
+              {message.replyTo && (
+                <div className={`mb-2 pb-2 pl-3 pr-2 py-2 rounded-lg ${
+                  isOwn 
+                    ? 'bg-white/10 border-l-4 border-white/40' 
+                    : 'bg-primary/10 border-l-4 border-primary'
+                }`}>
+                  <p className={`text-[10px] font-bold mb-0.5 ${isOwn ? 'text-white' : 'text-primary'}`}>
+                    {message.replyTo.senderId === userData?.uid ? 'You' : message.replyTo.senderName}
+                  </p>
+                  <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-base-content/70'} line-clamp-2`}>
+                    {message.replyTo.content}
+                  </p>
+                </div>
+              )}
+              
+              <p className="text-sm whitespace-pre-wrap break-words pr-12 pb-3">{message.content}</p>
+              <span className={`absolute bottom-1 right-2 text-[10px] ${isOwn ? 'text-white/60' : 'text-base-content/50'} whitespace-nowrap`}>
+                {getTimeAgo()}
+              </span>
+            </div>
+
+            {/* Desktop hover actions — Reply / React */}
+            <div className="hidden md:flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+              <button
+                type="button"
+                onClick={handleShowReactions}
+                className="btn btn-ghost btn-xs btn-circle text-base-content/60 hover:text-warning hover:bg-base-200"
+                title="React"
+                aria-label="React to message"
+              >
+                <FaSmile className="text-sm" />
+              </button>
+              <button
+                type="button"
+                onClick={handleReply}
+                className="btn btn-ghost btn-xs btn-circle text-base-content/60 hover:text-primary hover:bg-base-200"
+                title="Reply"
+                aria-label="Reply to message"
+              >
+                <FaReply className="text-sm" />
+              </button>
+            </div>
           </div>
 
           {/* Context Menu - Portal rendering to stay on top of everything */}
@@ -529,17 +528,13 @@ const MessageItem = ({ message, isOwn, groupId, onReply, activeReactionMessageId
           )}
 
           {/* Reaction picker - shows when React button clicked from context menu - Portal rendering */}
-          {showReactions && bubbleRef.current && createPortal(
+          {showReactions && createPortal(
             <div
               ref={reactionPickerRef}
               className="fixed z-[99999] bg-base-100 shadow-xl rounded-full px-2 py-1.5 flex gap-1 border border-base-300"
               style={{
-                top: reactionPosition === 'below' 
-                  ? `${bubbleRef.current.getBoundingClientRect().bottom + 8}px`
-                  : `${bubbleRef.current.getBoundingClientRect().top - 48}px`,
-                left: isOwn 
-                  ? `${bubbleRef.current.getBoundingClientRect().right - 240}px`
-                  : `${bubbleRef.current.getBoundingClientRect().left}px`,
+                top: `${pickerCoords.top}px`,
+                left: `${pickerCoords.left}px`,
               }}
             >
               {REACTIONS.map((emoji) => (

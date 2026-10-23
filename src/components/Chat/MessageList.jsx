@@ -5,22 +5,62 @@ import AnnouncementItem from './AnnouncementItem';
 import PollItem from './PollItem';
 import TypingIndicator from './TypingIndicator';
 
-const MessageList = ({ messages, groupId, isManager, onReply }) => {
+const MessageList = ({ messages, groupId, isManager, onReply, groupMembers = [] }) => {
   const messagesEndRef = useRef(null);
+  const listRef = useRef(null);
+  const lastMessageIdRef = useRef(null);
   const { userData } = useAuth();
   const [activeReactionMessageId, setActiveReactionMessageId] = useState(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const isNearBottom = () => {
+    const el = listRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 140;
   };
 
+  const scrollToBottom = (behavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  // Pinned announcements first, then chronological order
+  const displayMessages = (() => {
+    const pinned = [];
+    const rest = [];
+    messages.forEach((m) => {
+      if (m.type === 'announcement' && m.isPinned) pinned.push(m);
+      else rest.push(m);
+    });
+    return [...pinned, ...rest];
+  })();
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const last = messages[messages.length - 1];
+    const lastId = last?.id ?? null;
+    const prevId = lastMessageIdRef.current;
+    const isInitial = prevId === null && lastId !== null;
+    const isNewMessage = lastId !== null && lastId !== prevId;
+
+    lastMessageIdRef.current = lastId;
+
+    if (isInitial) {
+      scrollToBottom('auto');
+      return;
+    }
+
+    // Only auto-scroll when a new message arrives and user is near bottom
+    // (or the new message is from current user)
+    if (isNewMessage && (isNearBottom() || last?.senderId === userData?.uid)) {
+      scrollToBottom('smooth');
+    }
+  }, [messages, userData?.uid]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-base-50 to-base-100">
-      {messages.length === 0 ? (
+    <div
+      ref={listRef}
+      className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-base-50 to-base-100"
+      style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+    >
+      {displayMessages.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-base-content/50">
           <div className="bg-base-200/50 p-8 rounded-3xl shadow-inner">
             <p className="text-lg font-semibold mb-2">No messages yet</p>
@@ -28,39 +68,40 @@ const MessageList = ({ messages, groupId, isManager, onReply }) => {
           </div>
         </div>
       ) : (
-        messages.map((message) => {
+        displayMessages.map((message) => {
           if (message.type === 'announcement') {
             return (
-              <AnnouncementItem 
-                key={message.id} 
-                message={message} 
-                groupId={groupId}
-                isManager={isManager}
-              />
-            );
-          } else if (message.type === 'poll') {
-            return (
-              <PollItem 
-                key={message.id} 
-                message={message} 
-                groupId={groupId}
-                isManager={isManager}
-              />
-            );
-          } else {
-            return (
-              <MessageItem
+              <AnnouncementItem
                 key={message.id}
                 message={message}
-                isOwn={message.senderId === userData?.uid}
                 groupId={groupId}
-                onReply={onReply}
-                activeReactionMessageId={activeReactionMessageId}
-                setActiveReactionMessageId={setActiveReactionMessageId}
-                allMessages={messages} // Pass all messages for name lookup
+                isManager={isManager}
               />
             );
           }
+          if (message.type === 'poll') {
+            return (
+              <PollItem
+                key={message.id}
+                message={message}
+                groupId={groupId}
+                isManager={isManager}
+              />
+            );
+          }
+          return (
+            <MessageItem
+              key={message.id}
+              message={message}
+              isOwn={message.senderId === userData?.uid}
+              groupId={groupId}
+              onReply={onReply}
+              activeReactionMessageId={activeReactionMessageId}
+              setActiveReactionMessageId={setActiveReactionMessageId}
+              allMessages={messages}
+              groupMembers={groupMembers}
+            />
+          );
         })
       )}
       <TypingIndicator groupId={groupId} />

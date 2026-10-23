@@ -1,44 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../../firebase/config';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
-import { FaComments, FaTimes } from 'react-icons/fa';
+import { FaComments } from 'react-icons/fa';
+import { objectIdToString } from '../../lib/utils';
 
 const FloatingChatButton = ({ onClick, groupId }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const { userData } = useAuth();
+  const pulseTimerRef = useRef(null);
 
-  // Ensure groupId is a string
-  const groupIdString = groupId ? String(groupId) : null;
+  const groupIdString = objectIdToString(groupId);
 
   useEffect(() => {
     if (!groupIdString || !userData) return;
 
-    // Listen for new messages
     const messagesRef = collection(db, 'groups', groupIdString, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(20));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let unread = 0;
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Count messages not read by current user
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.senderId === userData.uid) return;
         if (!data.readBy?.includes(userData.uid)) {
           unread++;
         }
       });
-      
+
       setUnreadCount(unread);
-      
-      // Trigger pulse animation for new messages
+
       if (unread > 0) {
         setHasNewMessage(true);
-        setTimeout(() => setHasNewMessage(false), 3000);
+        if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+        pulseTimerRef.current = setTimeout(() => setHasNewMessage(false), 3000);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    };
   }, [groupIdString, userData]);
 
   return (

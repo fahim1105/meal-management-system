@@ -48,12 +48,15 @@ router.post('/', verifyToken, async (req, res) => {
     if (isEmailConfigured()) {
       try {
         const toFined = await resolveMemberEmail(group, targetUserId);
+        const managerMember = group.members.find((m) => m.userId === group.managerId);
+        const managerName = managerMember?.name || user.name || 'Manager';
         if (toFined) {
           await sendFineApprovedEmail({
             toFined,
             finedName: targetMember.name,
             toRequester: null,
             requesterName: null,
+            managerName,
             approvedByManager: true,
             amount: Number(amount),
             reason: reason.trim(),
@@ -139,12 +142,15 @@ router.patch('/:id/approve', verifyToken, async (req, res) => {
         const toRequester = fine.requestedByUserId
           ? await resolveMemberEmail(group, fine.requestedByUserId)
           : null;
+        const managerMember = group.members.find((m) => m.userId === group.managerId);
+        const managerName = managerMember?.name || user.name || 'Manager';
 
         await sendFineApprovedEmail({
           toFined,
           finedName: fine.targetUserName,
           toRequester,
           requesterName: fine.requestedByName,
+          managerName,
           approvedByManager: false,
           amount: fine.amount,
           reason: fine.reason,

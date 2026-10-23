@@ -1,46 +1,60 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
+
+const TYPING_WINDOW_MS = 5000;
 
 const TypingIndicator = ({ groupId }) => {
   const [typingUsers, setTypingUsers] = useState([]);
   const { userData } = useAuth();
-
-  // Ensure groupId is a string
   const groupIdString = groupId ? String(groupId) : null;
 
   useEffect(() => {
     if (!groupIdString) return;
 
+    let latestDocs = [];
     const typingRef = collection(db, 'groups', groupIdString, 'typing');
-    const q = query(typingRef, where('timestamp', '>', new Date(Date.now() - 5000))); // Last 5 seconds
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const applyFilter = () => {
+      const cutoff = Date.now() - TYPING_WINDOW_MS;
       const users = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Don't show current user's typing
-        if (data.userId !== userData?.uid) {
-          users.push(data.userName);
-        }
+      latestDocs.forEach((data) => {
+        if (data.userId === userData?.uid) return;
+        const ts = data.timestamp?.toMillis
+          ? data.timestamp.toMillis()
+          : data.timestamp?.seconds
+            ? data.timestamp.seconds * 1000
+            : 0;
+        if (ts > cutoff) users.push(data.userName || 'Someone');
       });
       setTypingUsers(users);
+    };
+
+    const unsubscribe = onSnapshot(typingRef, (snapshot) => {
+      latestDocs = [];
+      snapshot.forEach((docSnap) => latestDocs.push(docSnap.data()));
+      applyFilter();
     });
 
-    return () => unsubscribe();
-  }, [groupIdString, userData]);
+    const interval = setInterval(applyFilter, 1000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [groupIdString, userData?.uid]);
 
   if (typingUsers.length === 0) return null;
 
   const getTypingText = () => {
     if (typingUsers.length === 1) {
       return `${typingUsers[0]} is typing`;
-    } else if (typingUsers.length === 2) {
-      return `${typingUsers[0]} and ${typingUsers[1]} are typing`;
-    } else {
-      return `${typingUsers.length} people are typing`;
     }
+    if (typingUsers.length === 2) {
+      return `${typingUsers[0]} and ${typingUsers[1]} are typing`;
+    }
+    return `${typingUsers.length} people are typing`;
   };
 
   return (

@@ -2,6 +2,7 @@ import express from 'express';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
 import JoinRequest from '../models/JoinRequest.js';
+import Finance from '../models/Finance.js';
 import { verifyToken } from '../middleware/auth.js';
 import admin from '../config/firebase.js';
 
@@ -204,8 +205,53 @@ router.post('/transfer-manager', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'New manager not found in group' });
     }
 
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Find the current manager's member record to get their name
+    const currentManagerMember = group.members.find(m => m.userId === group.managerId);
+    const currentManagerName = currentManagerMember?.name || '';
+
+    // Close out the current manager's tenure in history
+    const existingEntry = group.managerHistory?.find(
+      (h) => h.managerId === group.managerId && h.toMonth == null
+    );
+    if (existingEntry) {
+      existingEntry.toMonth = currentMonth;
+    } else {
+      // First ever transfer — seed the initial manager's record
+      group.managerHistory.push({
+        managerId: group.managerId,
+        managerName: currentManagerName,
+        fromMonth: group.currentMonth || currentMonth,
+        toMonth: currentMonth,
+        transferredAt: now,
+      });
+    }
+
+    // Start the new manager's open-ended entry
+    group.managerHistory.push({
+      managerId: newManagerId,
+      managerName: newManager.name || '',
+      fromMonth: currentMonth,
+      toMonth: null,
+      transferredAt: now,
+    });
+
     group.managerId = newManagerId;
     await group.save();
+
+    // Update current month's Finance doc so it always reflects the latest manager
+    // while the month is still running. Once the month is over this is the final stamp.
+    await Finance.updateOne(
+      { groupId: group._id, month: currentMonth },
+      {
+        $set: {
+          managerId: newManagerId,
+          managerName: newManager.name || '',
+        },
+      }
+    );
 
     res.json({ group });
   } catch (error) {
@@ -231,6 +277,7 @@ router.post('/leave', verifyToken, async (req, res) => {
         await Group.findByIdAndDelete(group._id);
         user.groupId = null;
         await user.save();
+        await setUserClaims(uid, null);
         return res.json({ message: 'Group deleted successfully', groupDeleted: true });
       } else {
         return res.status(403).json({ error: 'Manager must transfer role before leaving' });
@@ -248,6 +295,7 @@ router.post('/leave', verifyToken, async (req, res) => {
     // Remove group from user
     user.groupId = null;
     await user.save();
+    await setUserClaims(uid, null);
 
     res.json({ message: 'Left group successfully', group });
   } catch (error) {
@@ -279,6 +327,7 @@ router.delete('/delete', verifyToken, async (req, res) => {
     await Group.findByIdAndDelete(group._id);
     user.groupId = null;
     await user.save();
+    await setUserClaims(uid, null);
 
     res.json({ message: 'Group deleted successfully' });
   } catch (error) {

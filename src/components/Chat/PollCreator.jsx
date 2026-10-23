@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaPoll, FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPoll, FaTimes, FaPlus, FaTrash, FaClock } from 'react-icons/fa';
 import burgerToast from '../BurgerToast';
 
 const PollCreator = ({ groupId, onClose }) => {
@@ -45,8 +45,15 @@ const PollCreator = ({ groupId, onClose }) => {
 
     setCreating(true);
     try {
+      const hours = Number(expiryHours);
+      if (!Number.isFinite(hours) || hours < 1) {
+        burgerToast.error('Please set a valid expiry time (1–168 hours)');
+        setCreating(false);
+        return;
+      }
+
       const messagesRef = collection(db, 'groups', groupIdString, 'messages');
-      const expiresAt = Timestamp.fromDate(new Date(Date.now() + expiryHours * 60 * 60 * 1000));
+      const expiresAt = Timestamp.fromDate(new Date(Date.now() + hours * 60 * 60 * 1000));
 
       await addDoc(messagesRef, {
         type: 'poll',
@@ -78,174 +85,260 @@ const PollCreator = ({ groupId, onClose }) => {
     }
   };
 
+  // Quick expiry presets (optional chips)
+  const expiryPresets = [
+    { label: '6h', hours: 6 },
+    { label: '12h', hours: 12 },
+    { label: '24h', hours: 24 },
+    { label: '3d', hours: 72 },
+    { label: '7d', hours: 168 },
+  ];
+
   return (
     <div className="modal modal-open">
-      <div className="modal-box w-11/12 max-w-3xl max-h-[95vh] bg-gradient-to-br from-base-100 to-base-200 shadow-2xl border border-info/20 p-0 overflow-hidden">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-br from-base-100 to-base-200 px-4 sm:px-6 py-4 border-b border-base-300">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="bg-gradient-to-br from-info to-blue-600 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg shrink-0">
-                <FaPoll className="text-white text-xl sm:text-2xl" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg sm:text-2xl text-base-content truncate">Create Poll</h3>
-                <p className="text-xs sm:text-sm text-base-content/60 line-clamp-2">Get feedback from your group members</p>
-              </div>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal Container - Desktop: centered, Mobile: bottom sheet */}
+      <div className="fixed inset-0 z-[70] flex items-end lg:items-center justify-center pointer-events-none">
+        <div 
+          className="pointer-events-auto w-full lg:w-auto lg:min-w-[560px] lg:max-w-[calc(100%-32px)] max-h-[85vh] lg:max-h-[75vh] flex flex-col
+                     bg-[var(--md-bg)] border-[1px] border-[var(--md-border)]
+                     rounded-t-[var(--md-radius-modal-mobile)] lg:rounded-[var(--md-radius-modal)]
+                     shadow-2xl overflow-hidden"
+        >
+          {/* Mobile Grab Handle */}
+          <div className="lg:hidden flex justify-center pt-3 pb-2 shrink-0">
+            <div className="w-10 h-1 bg-base-content/20 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 lg:px-6 py-4 border-b border-[var(--md-border)] shrink-0">
+            <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[var(--md-poll-icon)] flex items-center justify-center shrink-0">
+              <FaPoll className="text-white text-lg lg:text-xl" />
             </div>
-            <button 
-              onClick={onClose} 
-              className="btn btn-sm btn-circle btn-ghost hover:bg-error/10 hover:text-error transition-all shrink-0"
-            >
-              <FaTimes className="text-base sm:text-lg" />
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-80px)] px-4 sm:px-6 py-4">
-        <form onSubmit={handleCreate} className="space-y-4 sm:space-y-6">
-          {/* Question */}
-          <div className="form-control">
-            <label className="label px-0">
-              <span className="label-text font-semibold text-sm sm:text-base flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-info animate-pulse"></span>
-                Poll Question
-              </span>
-              <span className="label-text-alt text-base-content/50 text-xs sm:text-sm">
-                {question.length}/200
-              </span>
-            </label>
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value.slice(0, 200))}
-              placeholder="e.g., What should we cook for dinner?"
-              className="input input-bordered focus:outline-none focus:border-info focus:ring-2 focus:ring-info/20 bg-base-100 rounded-xl shadow-sm text-sm sm:text-base"
-              required
-            />
-          </div>
-
-          {/* Options */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-semibold text-base">Poll Options</span>
-              <span className="label-text-alt text-base-content/60">
-                {options.length}/10 options • Min 2 required
-              </span>
-            </label>
-            <div className="space-y-3">
-              {options.map((option, index) => (
-                <div key={index} className="flex gap-2 items-center group">
-                  <span className="text-base-content/40 font-semibold min-w-[24px]">
-                    {index + 1}.
-                  </span>
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value.slice(0, 100))}
-                    placeholder={`Option ${index + 1}`}
-                    className="input input-bordered flex-1 focus:outline-none focus:border-info focus:ring-2 focus:ring-info/20 bg-base-100 rounded-xl shadow-sm"
-                    required
-                  />
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOption(index)}
-                      className="btn btn-square btn-sm btn-ghost text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
-                      title="Remove option"
-                    >
-                      <FaTrash />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg lg:text-xl font-bold text-base-content">
+                Create Poll
+              </h2>
             </div>
-            {options.length < 10 && (
-              <button
-                type="button"
-                onClick={handleAddOption}
-                className="btn btn-sm btn-outline btn-info gap-2 mt-3 hover:scale-105 transition-all"
-              >
-                <FaPlus />
-                Add Option
-              </button>
-            )}
-          </div>
-
-          {/* Settings */}
-          <div className="grid grid-cols-1 gap-4">
-            {/* Expiry Time */}
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-semibold">Expires In</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={expiryHours}
-                  onChange={(e) => setExpiryHours(parseInt(e.target.value))}
-                  className="input input-bordered w-full focus:outline-none focus:border-info focus:ring-2 focus:ring-info/20 bg-base-100 rounded-xl shadow-sm pr-16"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base-content/50 font-medium">
-                  hours
-                </span>
-              </div>
-              <label className="label">
-                <span className="label-text-alt text-base-content/50">
-                  Max 168 hours (7 days)
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="alert alert-info shadow-lg">
-            <FaPoll className="text-xl" />
-            <div className="text-sm">
-              <p className="font-semibold">Poll Preview</p>
-              <p className="text-base-content/70">
-                Members can vote on {options.filter(o => o.trim()).length} options. 
-                Poll expires in {expiryHours} hour{expiryHours !== 1 ? 's' : ''}.
-                {' '}Single choice only - members can change their vote.
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="btn btn-ghost hover:bg-base-200 w-full sm:w-auto"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-base-content/10 transition-colors shrink-0"
+              aria-label="Close"
+            >
+              <FaTimes className="text-base-content/70 text-base" />
+            </button>
+          </div>
+
+          {/* Scrollable Body */}
+          <form onSubmit={handleCreate} className="flex-1 overflow-y-auto px-5 lg:px-6 py-5 space-y-5 scrollbar-thin scrollbar-thumb-base-content/20 scrollbar-track-transparent">
+            {/* Question Field */}
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <label htmlFor="poll-question" className="text-sm font-semibold text-[var(--md-label)]">
+                  Question
+                </label>
+                <span className="text-xs font-medium text-[var(--md-helper)]">
+                  {question.length}/200
+                </span>
+              </div>
+              <input
+                type="text"
+                id="poll-question"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value.slice(0, 200))}
+                placeholder="e.g., What should we cook for dinner?"
+                className="w-full px-4 py-3 text-sm lg:text-base bg-[var(--md-input-bg)] border border-[var(--md-input-border)] rounded-[var(--md-radius-field)]
+                           text-base-content placeholder:text-base-content/40
+                           focus:outline-none focus:border-[var(--md-input-border-focus)] focus:ring-2 focus:ring-[var(--md-input-ring)]
+                           transition-colors"
+                required
+                maxLength={200}
+              />
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[var(--md-label)]">
+                Options
+              </label>
+              <div className="space-y-2.5">
+                {options.map((option, index) => (
+                  <div key={index} className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-base-content/10 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-base-content/60">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) => handleOptionChange(index, e.target.value.slice(0, 100))}
+                      placeholder={`Option ${index + 1}`}
+                      className="flex-1 px-3.5 py-2.5 text-sm bg-[var(--md-input-bg)] border border-[var(--md-input-border)] rounded-[var(--md-radius-field)]
+                                 text-base-content placeholder:text-base-content/40
+                                 focus:outline-none focus:border-[var(--md-input-border-focus)] focus:ring-2 focus:ring-[var(--md-input-ring)]
+                                 transition-colors"
+                      required
+                      maxLength={100}
+                    />
+                    {options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOption(index)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-error hover:bg-error/10 transition-colors shrink-0"
+                        aria-label={`Remove option ${index + 1}`}
+                      >
+                        <FaTrash className="text-sm" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {options.length < 10 && (
+                <button
+                  type="button"
+                  onClick={handleAddOption}
+                  className="mt-2 px-3.5 py-2 text-sm font-medium text-[var(--md-poll-icon)] bg-[var(--md-poll-icon)]/10 hover:bg-[var(--md-poll-icon)]/20 rounded-[var(--md-radius-button)] transition-colors flex items-center gap-2"
+                >
+                  <FaPlus className="text-xs" />
+                  <span>Add Option</span>
+                </button>
+              )}
+              <p className="text-xs text-[var(--md-helper)] mt-1.5">
+                {options.length}/10 options • Minimum 2 required
+              </p>
+            </div>
+
+            {/* Expiry Time */}
+            <div className="space-y-2">
+              <label htmlFor="poll-expiry" className="text-sm font-semibold text-[var(--md-label)]">
+                Expires in
+              </label>
+              <div className="relative">
+                <FaClock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base-content/40" />
+                <input
+                  type="number"
+                  id="poll-expiry"
+                  min="1"
+                  max="168"
+                  value={expiryHours}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (Number.isNaN(n)) {
+                      setExpiryHours('');
+                      return;
+                    }
+                    setExpiryHours(Math.min(168, Math.max(1, n)));
+                  }}
+                  className="w-full pl-10 pr-14 py-3 text-sm lg:text-base bg-[var(--md-input-bg)] border border-[var(--md-input-border)] rounded-[var(--md-radius-field)]
+                             text-base-content
+                             focus:outline-none focus:border-[var(--md-input-border-focus)] focus:ring-2 focus:ring-[var(--md-input-ring)]
+                             transition-colors"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-[var(--md-helper)]">
+                  hours
+                </span>
+              </div>
+              {/* Quick Preset Chips (optional) */}
+              <div className="flex flex-wrap gap-2">
+                {expiryPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setExpiryHours(preset.hours)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                      expiryHours === preset.hours
+                        ? 'bg-[var(--md-poll-icon)] text-white'
+                        : 'bg-base-content/[0.06] text-base-content/70 hover:bg-base-content/[0.12]'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--md-helper)]">
+                1–168 hours (7 days max)
+              </p>
+            </div>
+
+            {/* Preview Card */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[var(--md-label)]">
+                Preview
+              </label>
+              <div className="p-4 bg-[var(--md-preview-bg)] border border-[var(--md-preview-border)] rounded-[var(--md-radius-preview)]">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-[var(--md-poll-icon)] flex items-center justify-center shrink-0">
+                    <FaPoll className="text-white text-sm" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-base-content mb-0.5">
+                      {userData?.name || userData?.displayName || 'You'}
+                    </div>
+                    <p className="text-sm text-base-content/80 break-words">
+                      {question.trim() || 'Your poll question will appear here...'}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2 pl-2">
+                  {options.filter(o => o.trim()).slice(0, 3).map((opt, i) => (
+                    <div key={i} className="flex items-center gap-2.5 text-sm text-base-content/70">
+                      <div className="w-4 h-4 rounded-full border-2 border-current shrink-0" />
+                      <span className="truncate">{opt}</span>
+                    </div>
+                  ))}
+                  {options.filter(o => o.trim()).length > 3 && (
+                    <div className="text-xs text-[var(--md-helper)] pl-6">
+                      +{options.filter(o => o.trim()).length - 3} more
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-[var(--md-helper)] mt-3 flex items-center gap-1.5">
+                  <FaClock />
+                  <span>Expires in {expiryHours} hour{expiryHours !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          {/* Footer */}
+          <div className="flex items-center gap-3 px-5 lg:px-6 py-4 border-t border-[var(--md-border)] shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
               disabled={creating}
+              className="flex-1 lg:flex-initial lg:min-w-[100px] px-4 py-2.5 text-sm font-semibold text-base-content bg-base-content/[0.06] hover:bg-base-content/[0.12] rounded-[var(--md-radius-button)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn bg-gradient-to-r from-info to-blue-600 border-none text-white shadow-lg hover:shadow-info/50 hover:scale-105 transition-all gap-2 w-full sm:w-auto sm:flex-1"
-              disabled={creating}
+              onClick={handleCreate}
+              disabled={creating || !question.trim() || options.filter(o => o.trim()).length < 2}
+              className="flex-1 lg:flex-[2] px-4 py-2.5 text-sm font-semibold text-white bg-[var(--md-poll-btn)] hover:opacity-90 rounded-[var(--md-radius-button)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {creating ? (
                 <>
                   <span className="loading loading-spinner loading-sm"></span>
-                  <span className="hidden sm:inline">Creating...</span>
+                  <span>Creating...</span>
                 </>
               ) : (
                 <>
                   <FaPoll />
-                  Create Poll
+                  <span>Create Poll</span>
                 </>
               )}
             </button>
           </div>
-        </form>
         </div>
       </div>
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
     </div>
   );
 };

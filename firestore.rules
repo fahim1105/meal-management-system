@@ -2,54 +2,56 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Helper function to get user's group ID from custom claims or token
-    // This should be set when user logs in with their MongoDB group info
     function getUserGroupId() {
       return request.auth.token.groupId;
     }
     
-    // Helper function to check if user belongs to the specific group
     function belongsToGroup(groupId) {
       return isAuthenticated() && getUserGroupId() == groupId;
     }
+
+    function isSender() {
+      return resource.data.senderId == request.auth.uid;
+    }
+
+    function preservesIdentity() {
+      return request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.type == resource.data.type;
+    }
     
-    // Messages collection rules - STRICT GROUP ACCESS
     match /groups/{groupId}/messages/{messageId} {
-      // Only group members can read messages from their group
       allow read: if belongsToGroup(groupId);
       
-      // Only group members can create messages in their group
+      // Normal messages
       allow create: if belongsToGroup(groupId) && 
                        request.resource.data.type == "message" &&
                        request.resource.data.senderId == request.auth.uid;
       
-      // Only group members can create announcements/polls in their group
+      // Announcements / polls (UI gates manager; claim has no isManager yet)
       allow create: if belongsToGroup(groupId) && 
                        (request.resource.data.type == "announcement" || 
                         request.resource.data.type == "poll") &&
                        request.resource.data.senderId == request.auth.uid;
       
-      // Only group members can update messages (reactions, read status, poll votes)
-      allow update: if belongsToGroup(groupId);
+      // Updates: reactions, readBy, poll votes — cannot change sender/type
+      allow update: if belongsToGroup(groupId) && preservesIdentity();
       
-      // Only message sender from same group can delete their messages
-      allow delete: if belongsToGroup(groupId) && 
-                       resource.data.senderId == request.auth.uid;
+      // Sender can delete own messages; any member can delete announcement/poll
+      // (manager UI only shows delete for managers)
+      allow delete: if belongsToGroup(groupId) && (
+                       isSender() ||
+                       resource.data.type == "announcement" ||
+                       resource.data.type == "poll"
+                     );
     }
     
-    // Typing indicators collection rules - STRICT GROUP ACCESS
     match /groups/{groupId}/typing/{userId} {
-      // Only group members can read typing indicators from their group
       allow read: if belongsToGroup(groupId);
-      
-      // Users can only write their own typing status in their group
-      allow write: if belongsToGroup(groupId) && 
-                      userId == request.auth.uid;
+      allow write: if belongsToGroup(groupId) && userId == request.auth.uid;
     }
   }
 }

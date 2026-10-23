@@ -108,9 +108,9 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
     
     let warningMessage = '';
     if (financialStatus.balance < 0) {
-      warningMessage = `<p class="text-error font-bold mt-2">⚠️ You have ৳${Math.abs(financialStatus.balance).toFixed(2)} outstanding!</p>`;
+      warningMessage = `<p style="color: var(--color-error); font-weight: bold; margin-top: 0.5rem;">⚠️ You have ৳${Math.abs(financialStatus.balance).toFixed(2)} outstanding!</p>`;
     } else if (financialStatus.balance > 0) {
-      warningMessage = `<p class="text-success font-bold mt-2">✓ You will receive ৳${financialStatus.balance.toFixed(2)}</p>`;
+      warningMessage = `<p style="color: var(--color-success); font-weight: bold; margin-top: 0.5rem;">✓ You will receive ৳${financialStatus.balance.toFixed(2)}</p>`;
     }
 
     // Show confirmation dialog
@@ -119,24 +119,25 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
       html: `
         <p>Are you sure you want to leave <strong>${group?.name}</strong>?</p>
         ${warningMessage}
-        <div class="mt-4 p-3 bg-base-200 rounded-lg text-left">
-          <p class="text-sm"><strong>Your Summary:</strong></p>
-          <p class="text-sm">Total Meals: ${financialStatus.totalMeals}</p>
-          <p class="text-sm">Deposit: ৳${financialStatus.deposit.toFixed(2)}</p>
-          <p class="text-sm">Cost: ৳${financialStatus.cost.toFixed(2)}</p>
+        <div style="margin-top: 1rem; padding: 0.75rem; background: var(--color-base-200); border-radius: 0.75rem; text-align: left;">
+          <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Your Summary:</strong></p>
+          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Total Meals: ${financialStatus.totalMeals}</p>
+          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Deposit: ৳${financialStatus.deposit.toFixed(2)}</p>
+          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Cost: ৳${financialStatus.cost.toFixed(2)}</p>
         </div>
       `,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, Leave Group',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
-        popup: 'rounded-2xl',
-        confirmButton: 'btn btn-error',
-        cancelButton: 'btn btn-ghost'
+        popup: 'swal-account-popup',
+        title: 'swal-account-title',
+        htmlContainer: 'swal-account-html',
+        icon: 'swal-account-icon-warning',
+        confirmButton: 'swal-account-confirm-danger',
+        cancelButton: 'swal-account-cancel'
       }
     });
 
@@ -153,11 +154,12 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
         title: 'Success!',
         text: response.data.groupDeleted ? 'Group deleted successfully' : 'You have left the group',
         icon: 'success',
-        confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK',
         customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'btn btn-primary'
+          popup: 'swal-account-popup',
+          title: 'swal-account-title',
+          icon: 'swal-account-icon-success',
+          confirmButton: 'swal-account-confirm-primary'
         }
       });
 
@@ -171,10 +173,11 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
           title: 'Cannot Leave!',
           text: 'Manager must transfer role to another member before leaving',
           icon: 'error',
-          confirmButtonColor: '#3085d6',
           customClass: {
-            popup: 'rounded-2xl',
-            confirmButton: 'btn btn-primary'
+            popup: 'swal-account-popup',
+            title: 'swal-account-title',
+            icon: 'swal-account-icon-error',
+            confirmButton: 'swal-account-confirm-primary'
           }
         });
       } else {
@@ -190,20 +193,21 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
       title: 'Delete Group?',
       html: `
         <p>Are you sure you want to permanently delete <strong>${group?.name}</strong>?</p>
-        <p class="text-error font-bold mt-2">⚠️ This action cannot be undone!</p>
-        <p class="text-sm mt-2">All data will be deleted (meal records, finances, etc.)</p>
+        <p style="color: var(--color-error); font-weight: bold; margin-top: 0.5rem;">⚠️ This action cannot be undone!</p>
+        <p style="font-size: 0.875rem; margin-top: 0.5rem;">All data will be deleted (meal records, finances, etc.)</p>
       `,
       icon: 'error',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, Delete',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
-        popup: 'rounded-2xl',
-        confirmButton: 'btn btn-error',
-        cancelButton: 'btn btn-ghost'
+        popup: 'swal-account-popup',
+        title: 'swal-account-title',
+        htmlContainer: 'swal-account-html',
+        icon: 'swal-account-icon-error',
+        confirmButton: 'swal-account-confirm-danger',
+        cancelButton: 'swal-account-cancel'
       }
     });
 
@@ -220,11 +224,12 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
         title: 'Deleted!',
         text: 'Group has been deleted successfully',
         icon: 'success',
-        confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK',
         customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'btn btn-primary'
+          popup: 'swal-account-popup',
+          title: 'swal-account-title',
+          icon: 'swal-account-icon-success',
+          confirmButton: 'swal-account-confirm-primary'
         }
       });
 
@@ -362,7 +367,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
               </div>
             </div>
             {!editingPassword && (
-              <button className="btn btn-sm btn-primary gap-1.5 shadow-md" onClick={() => setEditingPassword(true)}>
+              <button className="btn btn-sm bg-neutral hover:opacity-90 gap-1.5 shadow-md border-0" style={{ color: 'var(--fin-on-strong)' }} onClick={() => setEditingPassword(true)}>
                 <FaEdit className="text-xs" /> Change
               </button>
             )}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase/config';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { FaPoll, FaCheckCircle, FaClock, FaTrash } from 'react-icons/fa';
 import Swal from 'sweetalert2';
@@ -57,74 +57,71 @@ const PollItem = ({ message, groupId, isManager }) => {
     setVoting(true);
     try {
       const messageRef = doc(db, 'groups', groupId, 'messages', message.id);
-      const options = pollData.options || [];
-      
-      // Find if user already voted on any option
-      const userVotedOption = options.find(opt => opt.votes?.includes(userData.uid));
 
-      if (userVotedOption) {
-        if (userVotedOption.id === optionId) {
-          // User clicked on the SAME option - TOGGLE OFF (remove vote)
-          await updateDoc(messageRef, {
-            [`pollData.options`]: options.map(opt =>
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(messageRef);
+        if (!snap.exists()) return;
+
+        const data = snap.data();
+        const poll = data.pollData || {};
+        const options = [...(poll.options || [])].map((opt) => ({
+          ...opt,
+          votes: [...(opt.votes || [])],
+        }));
+        const allowMultiple = !!poll.allowMultiple;
+        const userVotedOption = options.find((opt) => opt.votes.includes(userData.uid));
+
+        let nextOptions = options;
+
+        if (userVotedOption) {
+          if (userVotedOption.id === optionId) {
+            // Toggle off
+            nextOptions = options.map((opt) =>
               opt.id === optionId
-                ? { ...opt, votes: opt.votes.filter(uid => uid !== userData.uid) }
+                ? { ...opt, votes: opt.votes.filter((uid) => uid !== userData.uid) }
                 : opt
-            )
-          });
-        } else {
-          // User clicked on a DIFFERENT option
-          if (pollData.allowMultiple) {
-            // Multiple choice: Check if user already voted on this option
-            const alreadyVotedOnThisOption = options.find(
-              opt => opt.id === optionId && opt.votes?.includes(userData.uid)
             );
-            
-            if (alreadyVotedOnThisOption) {
-              // Remove vote from this option (toggle off)
-              await updateDoc(messageRef, {
-                [`pollData.options`]: options.map(opt =>
-                  opt.id === optionId
-                    ? { ...opt, votes: opt.votes.filter(uid => uid !== userData.uid) }
-                    : opt
-                )
-              });
+          } else if (allowMultiple) {
+            const alreadyOnThis = options.find(
+              (opt) => opt.id === optionId && opt.votes.includes(userData.uid)
+            );
+            if (alreadyOnThis) {
+              nextOptions = options.map((opt) =>
+                opt.id === optionId
+                  ? { ...opt, votes: opt.votes.filter((uid) => uid !== userData.uid) }
+                  : opt
+              );
             } else {
-              // Add vote to this option
-              await updateDoc(messageRef, {
-                [`pollData.options`]: options.map(opt =>
-                  opt.id === optionId
-                    ? { ...opt, votes: [...(opt.votes || []), userData.uid] }
-                    : opt
-                )
-              });
+              nextOptions = options.map((opt) =>
+                opt.id === optionId
+                  ? { ...opt, votes: [...opt.votes, userData.uid] }
+                  : opt
+              );
             }
           } else {
-            // Single choice: MOVE vote from old option to new option
-            await updateDoc(messageRef, {
-              [`pollData.options`]: options.map(opt => {
-                if (opt.id === userVotedOption.id) {
-                  // Remove vote from old option
-                  return { ...opt, votes: opt.votes.filter(uid => uid !== userData.uid) };
-                } else if (opt.id === optionId) {
-                  // Add vote to new option
-                  return { ...opt, votes: [...(opt.votes || []), userData.uid] };
-                }
-                return opt;
-              })
+            // Move single vote
+            nextOptions = options.map((opt) => {
+              if (opt.id === userVotedOption.id) {
+                return { ...opt, votes: opt.votes.filter((uid) => uid !== userData.uid) };
+              }
+              if (opt.id === optionId) {
+                return { ...opt, votes: [...opt.votes, userData.uid] };
+              }
+              return opt;
             });
           }
-        }
-      } else {
-        // First vote - add vote to selected option
-        await updateDoc(messageRef, {
-          [`pollData.options`]: options.map(opt =>
+        } else {
+          nextOptions = options.map((opt) =>
             opt.id === optionId
-              ? { ...opt, votes: [...(opt.votes || []), userData.uid] }
+              ? { ...opt, votes: [...opt.votes, userData.uid] }
               : opt
-          )
+          );
+        }
+
+        transaction.update(messageRef, {
+          pollData: { ...poll, options: nextOptions },
         });
-      }
+      });
     } catch (error) {
       console.error('Error voting:', error);
     } finally {
@@ -169,7 +166,7 @@ const PollItem = ({ message, groupId, isManager }) => {
 
   return (
     <div className="w-full">
-      <div className="bg-gradient-to-r from-info/20 to-info/10 border-l-4 border-info rounded-lg p-4">
+      <div className="bg-gradient-to-r from-info/30 to-info/20 dark:from-info/20 dark:to-info/10 border-l-4 border-info rounded-lg p-4">
         <div className="flex items-start gap-3">
           <div className="bg-info/20 p-2 rounded-full shrink-0">
             <FaPoll className="text-info text-lg" />
