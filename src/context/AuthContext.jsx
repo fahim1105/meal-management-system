@@ -99,7 +99,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = await user.getIdToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${API_URL}/auth/me`, { headers });
+      const response = await axios.get(`${API_URL}/auth/me`, { headers, timeout: 15000 });
       
       // CRITICAL FIX: Ensure groupId is a string, not an object
       const userData = response.data.user;
@@ -194,6 +194,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!auth) {
       setLoading(false);
+      setUserDataLoading(false);
       return;
     }
 
@@ -204,6 +205,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         setCurrentUser(null);
         setUserData(null);
+        setUserDataLoading(false);
       }
       setLoading(false);
     });

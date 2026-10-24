@@ -12,19 +12,20 @@ const DesktopNav = ({ state, userData, group, isManager, onOpenDrawer }) => {
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: 'Logout?',
-      text: 'Are you sure you want to logout?',
+      html: '<p style="opacity: 0.7; margin-top: 0.5rem;">Are you sure you want to logout?</p>',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#6b7280',
       confirmButtonText: 'Yes, Logout',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
-        popup: 'rounded-2xl',
-        title: 'text-xl font-bold',
-        confirmButton: 'rounded-xl px-6 py-2.5 font-semibold',
-        cancelButton: 'rounded-xl px-6 py-2.5 font-semibold',
+        popup: 'swal-logout-popup',
+        title: 'swal-logout-title',
+        htmlContainer: 'swal-logout-html',
+        icon: 'swal-logout-icon',
+        confirmButton: 'swal-logout-confirm',
+        cancelButton: 'swal-logout-cancel',
+        actions: 'swal2-actions',
       },
     });
 

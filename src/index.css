@@ -103,15 +103,18 @@
                 box-shadow 0.2s ease-in-out;
   }
   
+  html {
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+
   body {
     @apply antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background-color: var(--color-base-100);
     color: var(--color-base-content);
-  }
-  
-  html {
-    overflow-x: hidden;
   }
 }
 
@@ -406,10 +409,10 @@ body {
     @apply text-xs;
   }
   
-  /* Prevent horizontal scroll on mobile */
+  /* Prevent horizontal scroll on mobile without locking vertical scroll */
   body {
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 
@@ -1184,3 +1187,159 @@ body {
 [data-theme="dark"] input, [data-theme="dark"] select { color-scheme: dark; }
 [data-theme="light"] input, [data-theme="light"] select { color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) input, :root:not([data-theme]) select { color-scheme: dark; } }
+
+
+/* Logout SweetAlert Custom Styling - Theme Adaptive */
+.swal-logout-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 18px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-logout-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-logout-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+}
+
+.swal-logout-icon {
+  border-color: #E09A93 !important;
+  color: #E09A93 !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+/* Light mode - darker warning icon */
+:root:not([data-theme="dark"]) .swal-logout-icon,
+[data-theme="light"] .swal-logout-icon {
+  border-color: #8E4A43 !important;
+  color: #8E4A43 !important;
+}
+
+.swal-logout-confirm {
+  background: #E09A93 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Light mode - darker confirm button */
+:root:not([data-theme="dark"]) .swal-logout-confirm,
+[data-theme="light"] .swal-logout-confirm {
+  background: #8E4A43 !important;
+}
+
+.swal-logout-confirm:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-logout-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-logout-cancel:hover {
+  background: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200)) !important;
+}
+
+
+/* Deactivate Member SweetAlert Custom Styling - Theme Adaptive */
+.swal-deactivate-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 18px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.swal-deactivate-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-deactivate-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+}
+
+.swal-deactivate-icon {
+  border-color: #E09A93 !important;
+  color: #E09A93 !important;
+  border-width: 3px !important;
+  width: 70px !important;
+  height: 70px !important;
+  margin: 0 auto 1.5rem !important;
+}
+
+/* Light mode - darker warning icon */
+:root:not([data-theme="dark"]) .swal-deactivate-icon,
+[data-theme="light"] .swal-deactivate-icon {
+  border-color: #8E4A43 !important;
+  color: #8E4A43 !important;
+}
+
+.swal-deactivate-confirm {
+  background: #E09A93 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Light mode - darker confirm button */
+:root:not([data-theme="dark"]) .swal-deactivate-confirm,
+[data-theme="light"] .swal-deactivate-confirm {
+  background: #8E4A43 !important;
+}
+
+.swal-deactivate-confirm:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-deactivate-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
+  border-radius: 10px !important;
+  padding: 0.65rem 1.75rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal-deactivate-cancel:hover {
+  background: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200)) !important;
+}

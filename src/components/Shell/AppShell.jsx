@@ -11,7 +11,7 @@ import LottieLoader from '../LottieLoader';
 import ChatModal from '../Chat/ChatModal';
 
 const AppShell = () => {
-  const { currentUser, userData, userDataLoading, loading: authLoading } = useAuth();
+  const { currentUser, userData, userDataLoading, loading: authLoading, getAuthHeaders } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState(false);
 
@@ -23,18 +23,15 @@ const AppShell = () => {
   }, []);
 
   // Fetch group data when user has a group
-  const { data: group, isLoading: groupLoading } = useQuery({
+  const { data: group } = useQuery({
     queryKey: queryKeys.group(),
-    queryFn: ({ queryKey }) => {
-      const getAuthHeaders = queryKey[1];
-      return fetchGroup(getAuthHeaders);
-    },
+    queryFn: () => fetchGroup(getAuthHeaders),
     enabled: !!userData?.groupId && !!currentUser,
     refetchInterval: 15000,
   });
 
-  // Derive shell state
-  const isLoading = authLoading || userDataLoading;
+  // Logged-out users should not wait on profile fetch
+  const isLoading = authLoading || (!!currentUser && userDataLoading);
   const isLoggedIn = !!currentUser;
   const hasGroup = !!userData?.groupId;
   const isManager = group?.managerId === userData?.uid;

@@ -31,11 +31,11 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-base-100 py-8 px-4">
-      <div className="w-full max-w-4xl flex flex-col lg:flex-row items-center gap-0 lg:gap-8">
+    <div className="h-dvh overflow-y-auto overflow-x-hidden overscroll-y-contain bg-base-100 px-4 pt-8 pb-28 lg:pb-8">
+      <div className="w-full max-w-4xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-0 lg:gap-8">
 
         {/* Large screen: Playing chef on left */}
-        <div className="hidden lg:flex flex-1 items-center justify-center">
+        <div className="hidden lg:flex flex-1 items-center justify-center pointer-events-none">
           <div style={{ width: '100%', maxWidth: '420px' }} className="[&_svg]:bg-transparent [&>div]:bg-transparent">
             <Lottie
               animationData={chefAnimation}
@@ -49,7 +49,7 @@ const Register = () => {
         </div>
 
         {/* Mobile/tablet: chef.json above form */}
-        <div className="flex lg:hidden justify-center w-full -mb-4">
+        <div className="flex lg:hidden justify-center w-full -mb-4 pointer-events-none shrink-0">
           <div style={{ width: '160px', height: '160px' }}>
             <Lottie
               animationData={chefMobile}

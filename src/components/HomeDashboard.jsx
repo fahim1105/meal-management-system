@@ -107,8 +107,9 @@ const HomeDashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-0 lg:px-4 py-0 lg:py-8 space-y-6">
 
-      {/* Hero Greeting Banner */}
-      <div className="sticky top-0 z-50 lg:relative lg:top-auto lg:z-auto relative rounded-3xl lg:rounded-3xl overflow-hidden bg-primary shadow-2xl min-h-[160px] -mx-4 lg:mx-0 rounded-t-none lg:rounded-t-3xl">
+      {/* Hero Greeting Banner — sticky on mobile home only */}
+      <div className="sticky top-0 z-40 lg:relative lg:top-auto lg:z-auto">
+        <div className="relative overflow-hidden bg-primary shadow-2xl min-h-[160px] rounded-none lg:rounded-3xl">
         <div className="absolute top-0 left-0 w-72 h-72 bg-black/5 rounded-full -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
         <div className="absolute bottom-0 right-0 w-64 h-64 bg-black/5 rounded-full translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
         
@@ -140,6 +141,7 @@ const HomeDashboard = () => {
             <img src={burgerImg} alt="burger" className="w-28 sm:w-36 md:w-52 object-contain drop-shadow-2xl"
               style={{ filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }} />
           </div>
+        </div>
         </div>
       </div>
 

@@ -34,16 +34,26 @@ const AdminMembers = () => {
 
     const result = await Swal.fire({
       title: `${isActive ? 'Deactivate' : 'Reactivate'} Member?`,
-      html: `<p>Are you sure you want to <strong>${action}</strong> <strong>${member.name}</strong>?</p>
-        ${isActive ? '<p class="text-warning mt-2">⚠️ They will be marked as inactive and cannot have meals edited.</p>' : '<p class="text-success mt-2">✓ They will be marked as active again.</p>'}`,
+      html: `
+        <p style="opacity: 0.7; margin-bottom: 1rem;">Are you sure you want to <strong>${action}</strong> <strong>${member.name}</strong>?</p>
+        ${isActive 
+          ? '<div style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; padding: 0.75rem; background: color-mix(in oklab, #D6BD98 20%, transparent); border-radius: 10px; margin-top: 1rem;"><span style="font-size: 1.25rem;">⚠️</span><span style="font-size: 0.9rem; font-weight: 500;">They will be marked as inactive and cannot have meals edited.</span></div>' 
+          : '<div style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; padding: 0.75rem; background: color-mix(in oklab, #5C7057 20%, transparent); border-radius: 10px; margin-top: 1rem;"><span style="font-size: 1.25rem;">✓</span><span style="font-size: 0.9rem; font-weight: 500;">They will be marked as active again.</span></div>'}
+      `,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: isActive ? '#d33' : '#3085d6',
-      cancelButtonColor: '#6b7280',
       confirmButtonText: `Yes, ${action}`,
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: { popup: 'rounded-2xl' }
+      customClass: {
+        popup: 'swal-deactivate-popup',
+        title: 'swal-deactivate-title',
+        htmlContainer: 'swal-deactivate-html',
+        icon: 'swal-deactivate-icon',
+        confirmButton: 'swal-deactivate-confirm',
+        cancelButton: 'swal-deactivate-cancel',
+        actions: 'swal2-actions',
+      },
     });
 
     if (!result.isConfirmed) return;
@@ -115,7 +125,7 @@ const AdminMembers = () => {
                     >
                       <td className="font-medium">
                         {member.name}
-                        {isMe && <span className="badge badge-sm badge-primary ml-2">You</span>}
+                        {isMe && <span className="badge text-white badge-sm badge-primary ml-2">You</span>}
                       </td>
                       <td className="text-base-content/70 text-sm">{member.email}</td>
                       <td className="text-center">

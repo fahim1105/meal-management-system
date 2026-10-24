@@ -642,10 +642,12 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
       <div className="bg-base-200 border border-base-content/15 rounded-2xl overflow-hidden">
         <div 
           ref={scrollWrapperRef}
-          className={`overflow-auto ${mobileView === 'month' && typeof window !== 'undefined' && window.innerWidth < 1024 ? 'max-h-[70vh]' : 'max-h-[min(68vh,700px)]'}`}
+          className="overflow-x-auto lg:overflow-auto lg:max-h-[min(68vh,700px)]"
           style={{ 
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain'
+            overscrollBehaviorX: 'contain',
+            overscrollBehaviorY: 'auto',
+            touchAction: 'pan-x pan-y'
           }}
           tabIndex={0}
           aria-label="Monthly meal grid"
@@ -719,6 +721,9 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
               <tr>
                 <th
                   style={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 40,
                     backgroundColor: 'var(--meal-head)',
                     borderBottom: '2px solid var(--meal-lunch)',
                     borderRight: '1px solid var(--meal-line)',
