@@ -89,6 +89,29 @@ const AdminFineRequests = () => {
     );
   }
 
+  // Check if Fine feature is disabled
+  if (group?.fineEnabled === false) {
+    return (
+      <div className="container mx-auto px-3.5 lg:px-5 py-[14px] lg:py-[22px] max-w-[1040px]" style={{ paddingBottom: 'calc(88px + 24px + env(safe-area-inset-bottom, 0px))' }}>
+        <PageTitle 
+          icon={FaGavel}
+          title="Fine Requests"
+          subtitle="This feature is currently disabled"
+        />
+        <div className="bg-base-200 border border-base-content/15 rounded-[18px] p-[56px_20px] flex flex-col items-center justify-center text-center">
+          <div 
+            className="w-[72px] h-[72px] rounded-[22px] flex items-center justify-center mb-4"
+            style={{ background: 'var(--ad-tile)' }}
+          >
+            <FaGavel className="text-[34px] text-base-content/50" />
+          </div>
+          <p className="text-[22px] font-[700] text-base-content mb-1">Fine Feature Disabled</p>
+          <p className="text-base-content/70">The manager has turned off the Fine feature.<br/>Contact your group manager to enable it.</p>
+        </div>
+      </div>
+    );
+  }
+
   const pendingCount = pendingFines.length;
 
   return (

@@ -6,10 +6,47 @@ import axios from 'axios';
 import burgerToast from '../components/BurgerToast';
 import LottieLoader from '../components/LottieLoader';
 import { queryKeys, fetchGroup, fetchSchedule } from '../lib/queries';
-import { FaCalendarCheck, FaSave } from 'react-icons/fa';
+import { FaCalendarCheck, FaSave, FaCalendarAlt, FaRegCalendarAlt } from 'react-icons/fa';
 import PageTitle from '../components/Admin/PageTitle';
 import MemberAvatar from '../components/Admin/MemberAvatar';
 import StickySaveBar from '../components/Admin/StickySaveBar';
+
+const formatDisplayDate = (value) => {
+  if (!value) return '';
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+};
+
+const DateField = ({ id, label, value, min, onChange }) => (
+  <div className="min-w-0 max-w-full">
+    <label htmlFor={id} className="block text-[13.5px] sm:text-[13px] font-[600] text-base-content/80 mb-1.5">
+      {label}
+    </label>
+    <div
+      className="relative w-full min-w-0 rounded-xl border-[1.5px] bg-base-200 focus-within:ring-3"
+      style={{
+        borderColor: 'var(--ad-line)',
+        '--tw-ring-color': 'color-mix(in oklab, var(--color-neutral) 28%, transparent)',
+      }}
+    >
+      <div className="flex items-center gap-2 w-full min-h-[46px] px-[12px] py-[11px] pointer-events-none">
+        <span className={`text-[15px] truncate ${value ? 'text-base-content' : 'text-base-content/40'}`}>
+          {value ? formatDisplayDate(value) : 'dd/mm/yyyy'}
+        </span>
+        <FaRegCalendarAlt className="ml-auto text-base-content/55 shrink-0 text-[15px]" />
+      </div>
+      <input
+        id={id}
+        type="date"
+        value={value || ''}
+        min={min}
+        onChange={onChange}
+        className="absolute inset-0 w-full h-full cursor-pointer opacity-[0.01] text-[16px] bg-transparent border-0 p-0 m-0"
+      />
+    </div>
+  </div>
+);
 
 const AdminBazar = () => {
   const [scheduleMonth, setScheduleMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -116,17 +153,16 @@ const AdminBazar = () => {
       />
 
       {/* Select Month */}
-      <div className="mb-[18px]">
+      <div className="mb-[18px] max-w-full">
         <label htmlFor="schedule-month" className="block text-[14.5px] font-[600] text-base-content mb-2">
           Select Month
         </label>
         <input
           id="schedule-month"
           type="month"
-          className="w-full lg:max-w-[280px] px-[14px] py-[12px] rounded-xl border-[1.5px] text-base-content cursor-pointer focus:outline-none focus:ring-3"
+          className="block w-full max-w-[13.75rem] min-w-0 px-[14px] py-[12px] rounded-xl border-[1.5px] bg-base-200 text-base-content cursor-pointer focus:outline-none focus:ring-3"
           style={{ 
             borderColor: 'var(--ad-line)',
-            background: 'var(--ad-field)',
             '--tw-ring-color': 'color-mix(in oklab, var(--color-neutral) 28%, transparent)'
           }}
           value={scheduleMonth}
@@ -158,83 +194,67 @@ const AdminBazar = () => {
           return (
             <div 
               key={member.userId} 
-              className="bg-base-200 border rounded-[18px] p-[16px_18px]"
+              className="bg-base-200 border rounded-[18px] p-[16px_18px] min-w-0 overflow-hidden"
               style={{ 
                 borderColor: isCurrentUser ? 'var(--color-neutral)' : 'var(--ad-line)',
                 borderWidth: isCurrentUser ? '1.5px' : '1px'
               }}
             >
-              <div className="grid gap-[14px]">
+              <div className="grid gap-[14px] min-w-0">
                 {/* Top Row: Avatar + Name + Status */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-start sm:items-center gap-3">
                   <MemberAvatar 
                     photoURL={member.photoURL}
                     name={member.name}
                     isYou={isCurrentUser}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-[700] text-base-content">{member.name}</span>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-[700] text-[15px] sm:text-base text-base-content break-words">{member.name}</span>
+                      {hasRange && (
+                        <span 
+                          className="text-[11px] font-[700] rounded-full px-[10px] py-[3px]"
+                          style={{ 
+                            background: 'var(--color-neutral)',
+                            color: 'var(--ad-on-strong)'
+                          }}
+                        >
+                          set
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[13px] text-base-content/70 truncate">{member.email}</p>
+                    <p className="text-[12px] sm:text-[13px] text-base-content/70 break-all">{member.email}</p>
                   </div>
-                  {hasRange && (
-                    <span 
-                      className="text-[12px] font-[700] rounded-full px-[10px] py-[2px] shrink-0"
-                      style={{ 
-                        background: 'var(--color-neutral)',
-                        color: 'var(--ad-on-strong)'
-                      }}
-                    >
-                      set
-                    </span>
-                  )}
                 </div>
 
                 {/* Date Inputs */}
-                <div className="grid grid-cols-2 gap-[10px]">
-                  <div>
-                    <label htmlFor={`from-${member.userId}`} className="block text-[13px] font-[600] text-base-content/70 mb-1.5">
-                      From Date
-                    </label>
-                    <input
-                      id={`from-${member.userId}`}
-                      type="date"
-                      className="w-full px-[12px] py-[10px] rounded-xl border-[1.5px] text-sm focus:outline-none focus:ring-3"
-                      style={{ 
-                        borderColor: 'var(--ad-line)',
-                        background: 'var(--ad-field)',
-                        '--tw-ring-color': 'color-mix(in oklab, var(--color-neutral) 28%, transparent)'
-                      }}
-                      value={ranges[member.userId]?.fromDate || ''}
-                      onChange={e => handleRangeChange(member.userId, 'fromDate', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={`to-${member.userId}`} className="block text-[13px] font-[600] text-base-content/70 mb-1.5">
-                      To Date
-                    </label>
-                    <input
-                      id={`to-${member.userId}`}
-                      type="date"
-                      className="w-full px-[12px] py-[10px] rounded-xl border-[1.5px] text-sm focus:outline-none focus:ring-3"
-                      style={{ 
-                        borderColor: 'var(--ad-line)',
-                        background: 'var(--ad-field)',
-                        '--tw-ring-color': 'color-mix(in oklab, var(--color-neutral) 28%, transparent)'
-                      }}
-                      value={ranges[member.userId]?.toDate || ''}
-                      min={ranges[member.userId]?.fromDate || ''}
-                      onChange={e => handleRangeChange(member.userId, 'toDate', e.target.value)}
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px] min-w-0">
+                  <DateField
+                    id={`from-${member.userId}`}
+                    label="From Date"
+                    value={ranges[member.userId]?.fromDate || ''}
+                    onChange={e => handleRangeChange(member.userId, 'fromDate', e.target.value)}
+                  />
+                  <DateField
+                    id={`to-${member.userId}`}
+                    label="To Date"
+                    value={ranges[member.userId]?.toDate || ''}
+                    min={ranges[member.userId]?.fromDate || ''}
+                    onChange={e => handleRangeChange(member.userId, 'toDate', e.target.value)}
+                  />
                 </div>
 
-                {/* Optional Day Count */}
+                {/* Day Count Display */}
                 {hasRange && dayCount > 0 && (
-                  <p className="text-[13px] text-base-content/70">
-                    {dayCount} day{dayCount !== 1 ? 's' : ''} of bazar duty
-                  </p>
+                  <div 
+                    className="rounded-xl px-3 py-2 flex items-center gap-2"
+                    style={{ background: 'var(--ad-tile)' }}
+                  >
+                    <FaCalendarAlt className="text-base-content shrink-0" />
+                    <span className="text-[13px] font-[600] text-base-content">
+                      {dayCount} day{dayCount !== 1 ? 's' : ''} of bazar duty
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

@@ -204,17 +204,20 @@ const RightDrawer = ({ isOpen, onClose, userData, isManager, group }) => {
                     <span>Set Bazar</span>
                   </button>
 
-                  <button
-                    onClick={() => handleNavigation('/admin/fine-requests')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                      location.pathname === '/admin/fine-requests'
-                        ? 'bg-primary text-white'
-                        : 'hover:bg-base-200'
-                    }`}
-                  >
-                    <FaGavel size={20} />
-                    <span>Fine Requests</span>
-                  </button>
+                  {/* Fine Requests - only show if feature is enabled */}
+                  {group?.fineEnabled !== false && (
+                    <button
+                      onClick={() => handleNavigation('/admin/fine-requests')}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                        location.pathname === '/admin/fine-requests'
+                          ? 'bg-primary text-white'
+                          : 'hover:bg-base-200'
+                      }`}
+                    >
+                      <FaGavel size={20} />
+                      <span>Fine Requests</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => handleNavigation('/admin/control')}

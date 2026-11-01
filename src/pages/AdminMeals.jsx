@@ -16,6 +16,7 @@ const AdminMeals = () => {
   const [configMonth, setConfigMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [mealConfigs, setMealConfigs] = useState({});
   const [savingMealConfig, setSavingMealConfig] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 820);
   
   const { userData, getAuthHeaders } = useAuth();
   const queryClient = useQueryClient();
@@ -76,6 +77,12 @@ const AdminMeals = () => {
     });
     setMealConfigs(prefilled);
   }, [existingMealConfig, configMonth, group?.members]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 820);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleMealConfigToggle = (userId, mealType) => {
     const turningOff = !!mealConfigs[userId]?.[mealType];
@@ -144,14 +151,6 @@ const AdminMeals = () => {
     );
   }
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 820);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 820);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const selectedMonthLabel = format(new Date(configMonth + '-01'), 'MMM yyyy');
 
   return (
@@ -174,17 +173,16 @@ const AdminMeals = () => {
       </div>
 
       {/* Select Month */}
-      <div className="mb-[18px]">
+      <div className="mb-[18px] max-w-full">
         <label htmlFor="config-month" className="block text-[14.5px] font-[600] text-base-content mb-2">
           Select Month
         </label>
         <input
           id="config-month"
           type="month"
-          className="w-full lg:max-w-[280px] px-[14px] py-[12px] rounded-xl border-[1.5px] text-base-content cursor-pointer focus:outline-none focus:ring-3"
+          className="block w-full max-w-[13.75rem] min-w-0 px-[14px] py-[12px] rounded-xl border-[1.5px] bg-base-200 text-base-content cursor-pointer focus:outline-none focus:ring-3"
           style={{ 
             borderColor: 'var(--ad-line)',
-            background: 'var(--ad-field)',
             '--tw-ring-color': 'color-mix(in oklab, var(--color-neutral) 28%, transparent)'
           }}
           value={configMonth}
@@ -201,7 +199,7 @@ const AdminMeals = () => {
           return (
             <div 
               key={member.userId} 
-              className="bg-base-200 border rounded-[18px] p-[16px_18px] transition-opacity"
+              className="bg-base-200 border rounded-[18px] p-[16px_18px] transition-opacity min-w-0 overflow-hidden"
               style={{ 
                 borderColor: isCurrentUser ? 'var(--color-neutral)' : 'var(--ad-line)',
                 borderWidth: isCurrentUser ? '1.5px' : '1px',
@@ -227,7 +225,7 @@ const AdminMeals = () => {
                 </div>
 
                 {/* Meal Chips */}
-                <div className="flex gap-2 flex-wrap min-h-[44px]">
+                <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                   {MEAL_TYPES.map(({ key, label, short, icon: Icon }) => {
                     const enabled = !!mealConfigs[member.userId]?.[key];
                     const locked = isMealTypeLocked(member.userId, key);
@@ -261,7 +259,7 @@ const AdminMeals = () => {
                         disabled={locked}
                         aria-pressed={enabled}
                         title={locked ? `Has ${key} entries in Meal Sheet — uncheck them first` : undefined}
-                        className="flex items-center gap-2 px-[14px] py-2 rounded-full text-[14px] font-[600] transition-all min-h-[44px]"
+                        className="flex items-center justify-center gap-2 px-[14px] py-2.5 rounded-full text-[14px] font-[600] transition-all min-h-[44px] sm:flex-1"
                         style={{
                           background: bgColor,
                           color: textColor,

@@ -176,8 +176,8 @@ const AdminControl = () => {
     try {
       const headers = await getAuthHeaders();
       await axios.post(
-        `${API_URL}/report/send-email/${downloadMonth}`,
-        {},
+        `${API_URL}/email/send-monthly-report`,
+        { month: downloadMonth },
         { headers }
       );
       burgerToast.success('Report sent to all members successfully');

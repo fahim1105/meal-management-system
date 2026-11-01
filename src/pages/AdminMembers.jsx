@@ -125,7 +125,7 @@ const AdminMembers = () => {
                     >
                       <td className="font-medium">
                         {member.name}
-                        {isMe && <span className="badge text-white badge-sm badge-primary ml-2">You</span>}
+                        {isMe && <span className="badge text-white/ badge-sm badge-primary ml-2">You</span>}
                       </td>
                       <td className="text-base-content/70 text-sm">{member.email}</td>
                       <td className="text-center">
