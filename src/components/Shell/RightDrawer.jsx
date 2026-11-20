@@ -8,7 +8,7 @@ import Swal from 'sweetalert2';
  * RightDrawer - Side drawer menu for state C (logged in + in group)
  * Contains: Profile, Fine (if enabled), My History, Admin Panel (managers+), Theme, Logout
  */
-const RightDrawer = ({ isOpen, onClose, userData, isManager, group }) => {
+const RightDrawer = ({ isOpen, onClose, userData, isManager, group, limited = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -119,8 +119,7 @@ const RightDrawer = ({ isOpen, onClose, userData, isManager, group }) => {
                 <span>Profile</span>
               </button>
 
-              {/* Fine - only show if feature is enabled */}
-              {group?.fineEnabled !== false && (
+              {!limited && group?.fineEnabled !== false && (
                 <button
                   onClick={() => handleNavigation('/fine')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
@@ -134,7 +133,7 @@ const RightDrawer = ({ isOpen, onClose, userData, isManager, group }) => {
                 </button>
               )}
 
-              {/* My History */}
+              {!limited && (
               <button
                 onClick={() => handleNavigation('/my-history')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
@@ -146,9 +145,10 @@ const RightDrawer = ({ isOpen, onClose, userData, isManager, group }) => {
                 <FaHistory size={20} />
                 <span>My History</span>
               </button>
+              )}
 
-              {/* Admin Settings - only for managers */}
-              {isManager && (
+              {/* Admin Settings - only for managers in a group */}
+              {!limited && isManager && (
                 <>
                   <div className="pt-2 pb-1 px-4">
                     <p className="text-xs font-semibold text-base-content/60 uppercase tracking-wider">

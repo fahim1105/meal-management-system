@@ -149,9 +149,6 @@ const MessageInput = ({ onSend, groupId, replyingTo, onCancelReply }) => {
             )}
           </button>
         </div>
-        <p className="text-xs text-base-content/50 mt-2 ml-1">
-          Press <kbd className="kbd kbd-xs">Shift</kbd> + <kbd className="kbd kbd-xs">Enter</kbd> for new line
-        </p>
       </div>
     </form>
   );

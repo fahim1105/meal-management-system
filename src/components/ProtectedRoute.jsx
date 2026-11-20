@@ -25,7 +25,8 @@ const ProtectedRoute = ({ children, requireGroup = false }) => {
     );
   }
 
-  if (requireGroup && userData && !userData.groupId) {
+  // Check if user is in an ACTIVE group (not just has groupId)
+  if (requireGroup && userData && (!userData.groupId || !userData.isActive)) {
     return <Navigate to="/group-setup" replace />;
   }
 

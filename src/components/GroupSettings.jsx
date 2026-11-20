@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queries';
 import axios from 'axios';
 import burgerToast from './BurgerToast';
 import Swal from 'sweetalert2';
@@ -22,7 +24,8 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const fileInputRef = useRef(null);
-  const { getAuthHeaders, userData, fetchUserData, currentUser, updateProfileData, changePassword } = useAuth();
+  const queryClient = useQueryClient();
+  const { getAuthHeaders, userData, fetchUserData, currentUser, updateProfileData, changePassword, refreshUserToken } = useAuth();
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -84,7 +87,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
 
   // Get current user's member info from group
   const myMemberInfo = group?.members?.find(m => m.userId === userData?.uid);
-  const joinedDate = myMemberInfo?.joinedAt
+  const joinedDate = (userData?.groupId && myMemberInfo?.status === 'active' && myMemberInfo?.joinedAt)
     ? new Date(myMemberInfo.joinedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : 'N/A';
 
@@ -106,25 +109,57 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
     // Get financial status
     const financialStatus = await getUserFinancialStatus();
     
-    let warningMessage = '';
+    let alertBanner = '';
     if (financialStatus.balance < 0) {
-      warningMessage = `<p style="color: var(--color-error); font-weight: bold; margin-top: 0.5rem;">⚠️ You have ৳${Math.abs(financialStatus.balance).toFixed(2)} outstanding!</p>`;
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-error">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">⚠️</span>
+          <div>
+            <strong>Outstanding Balance:</strong> You have an unpaid amount of <strong>৳${Math.abs(financialStatus.balance).toFixed(2)}</strong>. Please settle before leaving.
+          </div>
+        </div>
+      `;
     } else if (financialStatus.balance > 0) {
-      warningMessage = `<p style="color: var(--color-success); font-weight: bold; margin-top: 0.5rem;">✓ You will receive ৳${financialStatus.balance.toFixed(2)}</p>`;
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-success">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <div>
+            <strong>Refund Due:</strong> You have a surplus balance of <strong>৳${financialStatus.balance.toFixed(2)}</strong> to receive from the mess.
+          </div>
+        </div>
+      `;
+    } else {
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-neutral">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <div>
+            <strong>Account Balanced:</strong> Your mess finances are fully settled (৳0.00).
+          </div>
+        </div>
+      `;
     }
 
     // Show confirmation dialog
     const result = await Swal.fire({
       title: 'Leave Group?',
       html: `
-        <p>Are you sure you want to leave <strong>${group?.name}</strong>?</p>
-        ${warningMessage}
-        <div style="margin-top: 1rem; padding: 0.75rem; background: var(--color-base-200); border-radius: 0.75rem; text-align: left;">
-          <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Your Summary:</strong></p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Total Meals: ${financialStatus.totalMeals}</p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Deposit: ৳${financialStatus.deposit.toFixed(2)}</p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Cost: ৳${financialStatus.cost.toFixed(2)}</p>
+        <p style="margin-bottom: 0.25rem;">Are you sure you want to leave <strong>${group?.name || 'this group'}</strong>?</p>
+        ${alertBanner}
+        <div class="swal-leave-stats-grid">
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Total Meals</span>
+            <span class="swal-leave-stat-val">${financialStatus.totalMeals || 0}</span>
+          </div>
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Deposit</span>
+            <span class="swal-leave-stat-val">৳${Number(financialStatus.deposit || 0).toFixed(2)}</span>
+          </div>
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Cost</span>
+            <span class="swal-leave-stat-val">৳${Number(financialStatus.cost || 0).toFixed(2)}</span>
+          </div>
         </div>
+        <p class="swal-leave-notice">⚠️ You will immediately lose access to meal bookings, bazar schedule, and group features.</p>
       `,
       icon: 'warning',
       showCancelButton: true,
@@ -132,12 +167,13 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
-        popup: 'swal-account-popup',
-        title: 'swal-account-title',
-        htmlContainer: 'swal-account-html',
-        icon: 'swal-account-icon-warning',
-        confirmButton: 'swal-account-confirm-danger',
-        cancelButton: 'swal-account-cancel'
+        popup: 'swal-leave-popup',
+        title: 'swal-leave-title',
+        htmlContainer: 'swal-leave-html',
+        icon: 'swal-leave-icon',
+        actions: 'swal-leave-actions',
+        confirmButton: 'swal-leave-confirm',
+        cancelButton: 'swal-leave-cancel',
       }
     });
 
@@ -150,19 +186,28 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
       const headers = await getAuthHeaders();
       const response = await axios.post(`${API_URL}/group/leave`, {}, { headers });
       
+      // Clear all cached group & request queries from TanStack Query
+      queryClient.removeQueries({ queryKey: queryKeys.myRequestStatus() });
+      queryClient.removeQueries({ queryKey: queryKeys.group() });
+      queryClient.clear();
+
       await Swal.fire({
-        title: 'Success!',
-        text: response.data.groupDeleted ? 'Group deleted successfully' : 'You have left the group',
+        title: 'Successfully Left Group',
+        text: response.data.groupDeleted ? 'Group deleted successfully' : 'You have left the group successfully.',
         icon: 'success',
+        iconColor: 'var(--color-success)',
         confirmButtonText: 'OK',
         customClass: {
-          popup: 'swal-account-popup',
-          title: 'swal-account-title',
-          icon: 'swal-account-icon-success',
-          confirmButton: 'swal-account-confirm-primary'
+          popup: 'swal-leave-popup',
+          title: 'swal-leave-title',
+          htmlContainer: 'swal-leave-html',
+          icon: 'swal-leave-icon',
+          actions: 'swal-leave-actions',
+          confirmButton: 'swal-leave-confirm-primary',
         }
       });
 
+      await refreshUserToken();
       await fetchUserData(currentUser);
       navigate('/group-setup');
     } catch (error) {
@@ -173,11 +218,14 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
           title: 'Cannot Leave!',
           text: 'Manager must transfer role to another member before leaving',
           icon: 'error',
+          confirmButtonText: 'OK',
           customClass: {
-            popup: 'swal-account-popup',
-            title: 'swal-account-title',
-            icon: 'swal-account-icon-error',
-            confirmButton: 'swal-account-confirm-primary'
+            popup: 'swal-leave-popup',
+            title: 'swal-leave-title',
+            htmlContainer: 'swal-leave-html',
+            icon: 'swal-leave-icon',
+            actions: 'swal-leave-actions',
+            confirmButton: 'swal-leave-confirm-primary',
           }
         });
       } else {
@@ -220,6 +268,11 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_URL}/group/delete`, { headers });
       
+      // Clear all cached group & request queries from TanStack Query
+      queryClient.removeQueries({ queryKey: queryKeys.myRequestStatus() });
+      queryClient.removeQueries({ queryKey: queryKeys.group() });
+      queryClient.clear();
+
       await Swal.fire({
         title: 'Deleted!',
         text: 'Group has been deleted successfully',
@@ -233,6 +286,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
         }
       });
 
+      await refreshUserToken();
       await fetchUserData(currentUser);
       navigate('/group-setup');
     } catch (error) {

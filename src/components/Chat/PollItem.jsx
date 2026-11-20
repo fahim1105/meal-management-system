@@ -19,10 +19,24 @@ const PollItem = ({ message, groupId, isManager }) => {
       text: 'This will delete the poll and all votes',
       icon: 'warning',
       showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      background: 'var(--color-base-100)',
+      color: 'var(--color-base-content)',
+      iconColor: '#ef4444',
       confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, delete it',
-      cancelButtonText: 'Cancel'
+      cancelButtonColor: 'transparent',
+      customClass: {
+        popup: 'swal-custom-popup',
+        title: 'swal-custom-title',
+        htmlContainer: 'swal-custom-text',
+        confirmButton: 'swal-custom-confirm',
+        cancelButton: 'swal-custom-cancel',
+        icon: 'swal-custom-icon',
+        actions: 'swal-custom-actions'
+      },
+      buttonsStyling: false
     });
 
     if (result.isConfirmed) {
@@ -36,14 +50,36 @@ const PollItem = ({ message, groupId, isManager }) => {
           text: 'Poll has been deleted',
           icon: 'success',
           timer: 2000,
-          showConfirmButton: false
+          showConfirmButton: false,
+          background: 'var(--color-base-100)',
+          color: 'var(--color-base-content)',
+          iconColor: '#10b981',
+          customClass: {
+            popup: 'swal-custom-popup',
+            title: 'swal-custom-title',
+            htmlContainer: 'swal-custom-text',
+            icon: 'swal-custom-icon'
+          }
         });
       } catch (error) {
         console.error('Error deleting poll:', error);
         Swal.fire({
           title: 'Error',
           text: 'Failed to delete poll',
-          icon: 'error'
+          icon: 'error',
+          confirmButtonText: 'OK',
+          background: 'var(--color-base-100)',
+          color: 'var(--color-base-content)',
+          iconColor: '#ef4444',
+          confirmButtonColor: 'transparent',
+          customClass: {
+            popup: 'swal-custom-popup',
+            title: 'swal-custom-title',
+            htmlContainer: 'swal-custom-text',
+            confirmButton: 'swal-custom-error-btn',
+            icon: 'swal-custom-icon'
+          },
+          buttonsStyling: false
         });
       } finally {
         setDeleting(false);

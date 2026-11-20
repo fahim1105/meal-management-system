@@ -129,14 +129,41 @@ router.post('/', verifyToken, async (req, res) => {
     const rangeEntries = ranges.map(r => {
       const member = group.members.find(m => m.userId === r.userId);
       if (!member) throw new Error(`Member not found: ${r.userId}`);
-      if (new Date(r.toDate) < new Date(r.fromDate)) {
+      
+      // Check if member is active
+      if (member.status === 'inactive') {
+        throw new Error(`Cannot assign bazar to inactive member: ${member.name}`);
+      }
+      
+      // Check date ranges for members who left and rejoined
+      const fromDate = new Date(r.fromDate);
+      const toDate = new Date(r.toDate);
+      
+      if (member.leftAt && member.rejoinedAt) {
+        const leftDate = new Date(member.leftAt);
+        const rejoinDate = new Date(member.rejoinedAt);
+        // Check if any part of the range falls in inactive period
+        if (fromDate < rejoinDate && toDate >= leftDate) {
+          throw new Error(`${member.name}: Cannot assign bazar for dates when member was not in group`);
+        }
+      }
+      
+      if (member.leftAt && !member.rejoinedAt) {
+        const leftDate = new Date(member.leftAt);
+        if (toDate >= leftDate) {
+          throw new Error(`${member.name}: Cannot assign bazar after member left the group`);
+        }
+      }
+      
+      if (toDate < fromDate) {
         throw new Error(`${member.name}: End date must be after or equal to start date`);
       }
+      
       return {
         userId: member.userId,
         name: member.name,
-        fromDate: new Date(r.fromDate),
-        toDate: new Date(r.toDate),
+        fromDate,
+        toDate,
       };
     });
 

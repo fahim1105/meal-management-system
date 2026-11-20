@@ -572,42 +572,96 @@ const FinanceSummary = ({ group, isManager }) => {
               <p className="text-sm">Deposits added this month will appear here</p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Deposit history table">
-              <table className="w-full min-w-[500px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
-                  <tr>
-                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
-                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Member</th>
-                    <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
-                    {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {getDepositHistory().map((deposit, idx) => (
-                    <tr key={deposit._id} style={{
-                      backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
-                      borderBottom: '1px solid var(--fin-line)'
-                    }}>
-                      <td className="px-4 py-3">
-                        <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
-                          {format(new Date(deposit.date), 'dd MMM yyyy')}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-base-content">
-                        {deposit.memberName}
-                        {deposit.userId === userData?.uid && (
-                          <span className="ml-2 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
-                            You
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Deposit history table">
+                <table className="w-full min-w-[500px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
+                    <tr>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Member</th>
+                      <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
+                      {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getDepositHistory().map((deposit, idx) => (
+                      <tr key={deposit._id} style={{
+                        backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
+                        borderBottom: '1px solid var(--fin-line)'
+                      }}>
+                        <td className="px-4 py-3">
+                          <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                            {format(new Date(deposit.date), 'dd MMM yyyy')}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-base-content">
+                          {deposit.memberName}
+                          {deposit.userId === userData?.uid && (
+                            <span className="ml-2 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                              You
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
+                          ৳{deposit.amount.toFixed(2)}
+                        </td>
+                        {isManager && (
+                          <td className="text-right px-4 py-3">
+                            <button
+                              className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingDepositId === deposit._id ? 'opacity-50' : ''}`}
+                              style={{
+                                border: `1.5px solid ${deletingDepositId === deposit._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
+                                color: 'var(--fin-neg)'
+                              }}
+                              onClick={() => handleDeleteDeposit(deposit._id)}
+                              disabled={deletingDepositId === deposit._id}
+                              aria-label="Delete deposit"
+                            >
+                              {deletingDepositId === deposit._id ? '...' : <FaTrash className="text-xs" />}
+                            </button>
+                          </td>
                         )}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
+                    <tr>
+                      <td className="px-4 py-3 font-bold text-base-content" colSpan={2}>Total Deposits</td>
+                      <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
+                        ৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
                       </td>
-                      <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
-                        ৳{deposit.amount.toFixed(2)}
-                      </td>
-                      {isManager && (
-                        <td className="text-right px-4 py-3">
+                      {isManager && <td></td>}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden relative">
+                <div className="max-h-[420px] overflow-y-auto px-5 pt-2 pb-20 space-y-3">
+                  {getDepositHistory().map((deposit) => (
+                    <div 
+                      key={deposit._id} 
+                      className="bg-base-100 border border-base-content/15 rounded-xl p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="font-semibold text-base-content mb-1">
+                            {deposit.memberName}
+                            {deposit.userId === userData?.uid && (
+                              <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-base-content/60">
+                            {format(new Date(deposit.date), 'dd MMM yyyy')}
+                          </div>
+                        </div>
+                        {isManager && (
                           <button
-                            className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingDepositId === deposit._id ? 'opacity-50' : ''}`}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${deletingDepositId === deposit._id ? 'opacity-50' : ''}`}
                             style={{
                               border: `1.5px solid ${deletingDepositId === deposit._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
                               color: 'var(--fin-neg)'
@@ -618,22 +672,36 @@ const FinanceSummary = ({ group, isManager }) => {
                           >
                             {deletingDepositId === deposit._id ? '...' : <FaTrash className="text-xs" />}
                           </button>
-                        </td>
-                      )}
-                    </tr>
+                        )}
+                      </div>
+                      <div className="pt-2 border-t" style={{ borderColor: 'var(--fin-line)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-base-content/70">Amount</span>
+                          <span className="text-lg font-bold text-base-content tabular-nums">
+                            ৳{deposit.amount.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-                <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
-                  <tr>
-                    <td className="px-4 py-3 font-bold text-base-content" colSpan={2}>Total Deposits</td>
-                    <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
-                      ৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
-                    </td>
-                    {isManager && <td></td>}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                </div>
+                
+                {/* Sticky Mobile Total */}
+                <div className="sticky bottom-0 left-0 right-0 px-5 pb-4 pt-3 bg-base-200" style={{ 
+                  boxShadow: '0 -4px 12px rgba(0,0,0,0.08)',
+                  borderTop: '1px solid var(--fin-line)'
+                }}>
+                  <div className="bg-neutral rounded-xl p-3 shadow-md" style={{ backgroundColor: 'var(--color-neutral)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold" style={{ color: 'var(--fin-on-strong)' }}>Total Deposits</span>
+                      <span className="text-lg font-bold tabular-nums" style={{ color: 'var(--fin-on-strong)' }}>
+                        ৳{finance.deposits.reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           )
         )}
 
@@ -646,37 +714,87 @@ const FinanceSummary = ({ group, isManager }) => {
               <p className="text-sm">Bazar costs added this month will appear here</p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Bazar history table">
-              <table className="w-full min-w-[620px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
-                  <tr>
-                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
-                    <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
-                    <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Description</th>
-                    {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...finance.bazarCosts].sort(sortFns[bazarSort]).map((bazar, idx) => (
-                    <tr key={bazar._id} style={{
-                      backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
-                      borderBottom: '1px solid var(--fin-line)'
-                    }}>
-                      <td className="px-4 py-3">
-                        <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
-                          {format(new Date(bazar.date), 'dd MMM yyyy')}
-                        </span>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto max-h-[420px]" style={{ overscrollBehavior: 'contain' }} tabIndex={0} aria-label="Bazar history table">
+                <table className="w-full min-w-[620px]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead className="sticky top-0" style={{ backgroundColor: 'var(--fin-head)', zIndex: 2 }}>
+                    <tr>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Date</th>
+                      <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Amount</th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-base-content/70">Description</th>
+                      {isManager && <th className="text-right px-4 py-3 text-[13px] font-semibold text-base-content/70">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...finance.bazarCosts].sort(sortFns[bazarSort]).map((bazar, idx) => (
+                      <tr key={bazar._id} style={{
+                        backgroundColor: idx % 2 === 0 ? 'var(--fin-alt)' : 'var(--color-base-200)',
+                        borderBottom: '1px solid var(--fin-line)'
+                      }}>
+                        <td className="px-4 py-3">
+                          <span className="inline-block px-2 py-0.5 rounded-lg text-[13px] font-semibold text-base-content" style={{ backgroundColor: 'var(--fin-tile)' }}>
+                            {format(new Date(bazar.date), 'dd MMM yyyy')}
+                          </span>
+                        </td>
+                        <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
+                          ৳{bazar.amount.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-base-content/70 text-sm">
+                          {bazar.description || '−'}
+                        </td>
+                        {isManager && (
+                          <td className="text-right px-4 py-3">
+                            <button
+                              className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingBazarId === bazar._id ? 'opacity-50' : ''}`}
+                              style={{
+                                border: `1.5px solid ${deletingBazarId === bazar._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
+                                color: 'var(--fin-neg)'
+                              }}
+                              onClick={() => handleDeleteBazar(bazar._id)}
+                              disabled={deletingBazarId === bazar._id}
+                              aria-label="Delete bazar entry"
+                            >
+                              {deletingBazarId === bazar._id ? '...' : <FaTrash className="text-xs" />}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
+                    <tr>
+                      <td className="px-4 py-3 font-bold text-base-content">Total Bazar</td>
+                      <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
+                        ৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
                       </td>
-                      <td className="text-right px-4 py-3 font-bold text-base-content tabular-nums">
-                        ৳{bazar.amount.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-base-content/70 text-sm">
-                        {bazar.description || '−'}
-                      </td>
-                      {isManager && (
-                        <td className="text-right px-4 py-3">
+                      <td></td>
+                      {isManager && <td></td>}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden relative">
+                <div className="max-h-[420px] overflow-y-auto px-5 pt-2 pb-20 space-y-3">
+                  {[...finance.bazarCosts].sort(sortFns[bazarSort]).map((bazar) => (
+                    <div 
+                      key={bazar._id} 
+                      className="bg-base-100 border border-base-content/15 rounded-xl p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="text-xs text-base-content/60 mb-1">
+                            {format(new Date(bazar.date), 'dd MMM yyyy')}
+                          </div>
+                          <div className="text-sm text-base-content/70">
+                            {bazar.description || 'No description'}
+                          </div>
+                        </div>
+                        {isManager && (
                           <button
-                            className={`w-8 h-8 rounded-[9px] flex items-center justify-center transition-colors ${deletingBazarId === bazar._id ? 'opacity-50' : ''}`}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${deletingBazarId === bazar._id ? 'opacity-50' : ''}`}
                             style={{
                               border: `1.5px solid ${deletingBazarId === bazar._id ? 'var(--fin-neg)' : 'color-mix(in oklab, var(--fin-neg) 55%, transparent)'}`,
                               color: 'var(--fin-neg)'
@@ -687,23 +805,36 @@ const FinanceSummary = ({ group, isManager }) => {
                           >
                             {deletingBazarId === bazar._id ? '...' : <FaTrash className="text-xs" />}
                           </button>
-                        </td>
-                      )}
-                    </tr>
+                        )}
+                      </div>
+                      <div className="pt-2 border-t" style={{ borderColor: 'var(--fin-line)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-base-content/70">Amount</span>
+                          <span className="text-lg font-bold text-base-content tabular-nums">
+                            ৳{bazar.amount.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-                <tfoot className="sticky bottom-0" style={{ backgroundColor: 'var(--fin-head)', borderTop: '2px solid var(--color-neutral)', zIndex: 2 }}>
-                  <tr>
-                    <td className="px-4 py-3 font-bold text-base-content">Total Bazar</td>
-                    <td className="text-right px-4 py-3 font-bold text-base-content text-lg tabular-nums">
-                      ৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
-                    </td>
-                    <td></td>
-                    {isManager && <td></td>}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                </div>
+                
+                {/* Sticky Mobile Total */}
+                <div className="sticky bottom-0 left-0 right-0 px-5 pb-4 pt-3 bg-base-200" style={{ 
+                  boxShadow: '0 -4px 12px rgba(0,0,0,0.08)',
+                  borderTop: '1px solid var(--fin-line)'
+                }}>
+                  <div className="bg-neutral rounded-xl p-3 shadow-md" style={{ backgroundColor: 'var(--color-neutral)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold" style={{ color: 'var(--fin-on-strong)' }}>Total Bazar</span>
+                      <span className="text-lg font-bold tabular-nums" style={{ color: 'var(--fin-on-strong)' }}>
+                        ৳{finance.bazarCosts.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           )
         )}
       </div>
@@ -755,14 +886,14 @@ const FinanceSummary = ({ group, isManager }) => {
                     name="Deposit"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={60}
-                    style={{ fill: 'var(--fin-c1)' }}
+                    fill="var(--fin-c1)"
                   />
                   <Bar 
                     dataKey="cost" 
                     name="Cost"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={60}
-                    style={{ fill: 'var(--fin-c2)' }}
+                    fill="var(--fin-c2)"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -808,7 +939,7 @@ const FinanceSummary = ({ group, isManager }) => {
                     name="Balance"
                     strokeWidth={2}
                     fill="url(#balancePos)"
-                    style={{ stroke: 'var(--fin-pos)' }}
+                    stroke="var(--fin-pos)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -926,10 +1057,8 @@ const FinanceSummary = ({ group, isManager }) => {
                     name="Own Meals"
                     strokeWidth={2.5}
                     dot={{ r: 4, strokeWidth: 2 }}
-                    style={{ 
-                      stroke: 'var(--fin-c1)',
-                      fill: 'var(--fin-c1)'
-                    }}
+                    stroke="var(--fin-c1)"
+                    fill="var(--fin-c1)"
                   />
                   <Line 
                     type="monotone" 
@@ -937,10 +1066,8 @@ const FinanceSummary = ({ group, isManager }) => {
                     name="Guest Meals"
                     strokeWidth={2.5}
                     dot={{ r: 4, strokeWidth: 2 }}
-                    style={{ 
-                      stroke: 'var(--fin-c2)',
-                      fill: 'var(--fin-c2)'
-                    }}
+                    stroke="var(--fin-c2)"
+                    fill="var(--fin-c2)"
                   />
                 </LineChart>
               </ResponsiveContainer>

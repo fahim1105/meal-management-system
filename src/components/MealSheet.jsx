@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -26,6 +26,7 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
 
   // Refs for sticky header measurement
   const scrollWrapperRef = useRef(null);
+  const dateStripRef = useRef(null);
   const headerRow1Ref = useRef(null);
   const [headerRow1Height, setHeaderRow1Height] = useState(49); // Fallback until measured
   const [isScrolledX, setIsScrolledX] = useState(false);
@@ -319,6 +320,45 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
 
+  // Put today at the left of the day strip once the strip is actually on screen.
+  // Near month end, clamp so the strip does not scroll past the last day.
+  useEffect(() => {
+    if (mobileView !== 'day' || loading || configLoading) return;
+
+    let cancelled = false;
+    let tries = 0;
+
+    const alignStrip = () => {
+      if (cancelled) return;
+      const container = dateStripRef.current;
+      const today = new Date();
+      const todayKey = format(today, 'yyyy-MM');
+      const targetDay = currentMonth === todayKey ? today.getDate() : 1;
+      const btn = container?.querySelector(`[data-day="${targetDay}"]`);
+
+      if (!container || !btn || container.clientWidth < 40 || btn.offsetWidth < 20) {
+        if (tries++ < 30) requestAnimationFrame(alignStrip);
+        return;
+      }
+
+      let offset = 0;
+      const gap = 8;
+      for (const child of btn.parentElement.children) {
+        if (child === btn) break;
+        offset += child.getBoundingClientRect().width + gap;
+      }
+
+      const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+      container.scrollLeft = Math.max(0, Math.min(offset, maxScroll));
+    };
+
+    const frame = requestAnimationFrame(alignStrip);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [currentMonth, mobileView, daysInMonth, loading, configLoading]);
+
   // Check if day is today
   const isToday = (day) => {
     const todayMonth = format(new Date(), 'yyyy-MM');
@@ -347,6 +387,30 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
           <h1 className="text-2xl lg:text-3xl font-extrabold text-base-content tracking-tight">Meal Sheet</h1>
           <p className="text-base-content/70 mt-1">Track daily meals for all members</p>
         </div>
+        
+        {/* Month Switcher */}
+        <div className="bg-base-200 rounded-xl border border-base-content/15 p-2">
+          <div className="join w-full">
+            <button
+              type="button"
+              onClick={() => navigateMonth(-1)}
+              className="btn btn-sm btn-square join-item bg-base-100 border-base-content/15 hover:bg-base-300 text-base-content"
+            >
+              <FaChevronLeft />
+            </button>
+            <div className="join-item flex items-center justify-center flex-1 min-w-[130px] font-semibold text-base-content px-4">
+              {format(new Date(year, month - 1), 'MMMM yyyy')}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigateMonth(1)}
+              className="btn btn-sm btn-square join-item bg-base-100 border-base-content/15 hover:bg-base-300 text-base-content"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
+        </div>
+        
         <div className="bg-base-200 border border-base-content/15 rounded-2xl p-16 text-center">
           <FaUtensils className="text-6xl text-base-content/20 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-base-content">Meal types not configured</h3>
@@ -532,7 +596,7 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
       {mobileView === 'day' && (
         <div className="space-y-4">
           {/* Date Strip */}
-          <div className="overflow-x-auto -mx-3.5 px-3.5" style={{ scrollSnapType: 'x mandatory' }}>
+          <div ref={dateStripRef} className="overflow-x-auto -mx-3.5 px-3.5" style={{ scrollSnapType: 'x mandatory' }}>
             <div className="flex gap-2 pb-2">
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
                 const selected = day === selectedDay;
@@ -541,11 +605,12 @@ const MealSheet = ({ group, isManager, onUpdate }) => {
                   <button
                     key={day}
                     type="button"
+                    data-day={day}
                     onClick={() => setSelectedDay(day)}
                     className="shrink-0 w-[54px] rounded-xl border-[1.5px] py-2 px-1 text-center transition-all"
                     style={
                       selected
-                        ? { backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)', borderColor: 'var(--meal-lunch)' }
+                        ? { backgroundColor: 'var(--meal-lunch)', color: 'var(--meal-lunch-content)', borderColor: 'var(--meal-lunch)', scrollSnapAlign: 'start' }
                         : { backgroundColor: 'var(--color-base-200)', borderColor: 'var(--meal-line)', color: 'var(--color-base-content)', scrollSnapAlign: 'start' }
                     }
                   >

@@ -90,6 +90,16 @@ router.post('/deposit', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Only manager can add deposits' });
     }
 
+    // Check if member is active
+    const member = group.members.find(m => m.userId === userId);
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found in group' });
+    }
+    
+    if (member.status === 'inactive') {
+      return res.status(403).json({ error: 'Cannot add deposits for inactive members' });
+    }
+
     const finance = await ensureFinanceWithManager(currentUser.groupId, month, group);
 
     // Always push a new deposit entry (cumulative history)

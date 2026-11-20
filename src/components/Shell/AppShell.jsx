@@ -22,18 +22,18 @@ const AppShell = () => {
     return () => window.removeEventListener('openDrawer', handleOpenDrawer);
   }, []);
 
-  // Fetch group data when user has a group
+  // Fetch group data when user has an active group
   const { data: group } = useQuery({
     queryKey: queryKeys.group(),
     queryFn: () => fetchGroup(getAuthHeaders),
-    enabled: !!userData?.groupId && !!currentUser,
+    enabled: !!userData?.groupId && !!userData?.isActive && !!currentUser,
     refetchInterval: 15000,
   });
 
   // Logged-out users should not wait on profile fetch
   const isLoading = authLoading || (!!currentUser && userDataLoading);
   const isLoggedIn = !!currentUser;
-  const hasGroup = !!userData?.groupId;
+  const hasGroup = !!userData?.groupId && !!userData?.isActive;
   const isManager = group?.managerId === userData?.uid;
 
   // Shell states:
@@ -97,14 +97,15 @@ const AppShell = () => {
         />
       )}
 
-      {/* Right Drawer (state C only) */}
-      {shellState === 'C' && (
+      {/* Right Drawer — full menu in a group, profile-only before joining */}
+      {shellState !== 'A' && (
         <RightDrawer
           isOpen={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           userData={userData}
           group={group}
           isManager={isManager}
+          limited={shellState === 'B'}
         />
       )}
     </div>

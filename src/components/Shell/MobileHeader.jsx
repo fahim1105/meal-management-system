@@ -38,8 +38,8 @@ const MobileHeader = ({ state, userData, onOpenDrawer }) => {
     return null;
   }
 
-  // Hide on Home page - greeting card acts as header
-  if (isHomePage) {
+  // Home greeting card already has the menu when the user is in a group
+  if (isHomePage && state === 'C') {
     return null;
   }
 
@@ -57,16 +57,13 @@ const MobileHeader = ({ state, userData, onOpenDrawer }) => {
             </h1>
           </div>
           
-          {/* Menu button - only show in state C (when in group) */}
-          {state === 'C' && (
-            <button
-              onClick={onOpenDrawer}
-              className="btn btn-ghost btn-circle"
-              aria-label="Open menu"
-            >
-              <FaEllipsisV size={20} />
-            </button>
-          )}
+          <button
+            onClick={onOpenDrawer}
+            className="btn btn-ghost btn-circle"
+            aria-label="Open menu"
+          >
+            <FaEllipsisV size={20} />
+          </button>
         </div>
       </div>
     </div>

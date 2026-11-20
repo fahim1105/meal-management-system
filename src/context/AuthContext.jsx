@@ -112,8 +112,10 @@ export const AuthProvider = ({ children }) => {
       
       // Force token refresh to get updated custom claims
       await user.getIdToken(true);
+      return userData;
     } catch (error) {
       console.error('❌ Error fetching user data:', error);
+      return null;
     } finally {
       setUserDataLoading(false);
     }

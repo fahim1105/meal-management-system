@@ -10,23 +10,33 @@ import CTABanner from '../components/CTABanner';
 import HomeDashboard from '../components/HomeDashboard';
 import ChatSidebar from '../components/Chat/ChatSidebar';
 import LottieFoodAnimation from '../components/LottieFoodAnimation';
+import LottieLoader from '../components/LottieLoader';
 
 const Home = () => {
   const { currentUser, userData, userDataLoading, getAuthHeaders } = useAuth();
 
-  // Fetch group data to check if user is manager
+  // Fetch group data to check if user is manager (only for active members)
   const { data: group } = useQuery({
     queryKey: queryKeys.group(),
     queryFn: () => fetchGroup(getAuthHeaders),
-    enabled: !!userData?.groupId,
+    enabled: !!userData?.groupId && !!userData?.isActive,
     refetchInterval: 1000 * 10, // Auto-refresh every 10 seconds
   });
 
   // Check if current user is the manager
   const isManager = group?.managerId === userData?.uid;
 
-  // Logged-in + has group → show HomeDashboard directly
-  if (currentUser && !userDataLoading && userData?.groupId) {
+  // While user info is loading for a logged-in user, show smooth loader instead of flash of public landing
+  if (currentUser && userDataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-base-100">
+        <LottieLoader size={270} text="Loading your group info..." />
+      </div>
+    );
+  }
+
+  // Logged-in + has ACTIVE group → show HomeDashboard directly
+  if (currentUser && !userDataLoading && userData?.groupId && userData?.isActive) {
     return (
       <>
         <HomeDashboard />
@@ -133,8 +143,8 @@ const Home = () => {
       {!currentUser && <StatsStrip />}
       {!currentUser && <CTABanner />}
 
-      {/* Step Guide + What's Next — only for logged-in users without a group */}
-      {currentUser && !userDataLoading && !userData?.groupId && (
+      {/* Step Guide + What's Next — only for logged-in users without an active group */}
+      {currentUser && !userDataLoading && (!userData?.groupId || !userData?.isActive) && (
         <div className="bg-base-100 py-20">
           <div className="max-w-5xl mx-auto px-4 space-y-16">
 

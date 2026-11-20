@@ -8,10 +8,11 @@ import Swal from 'sweetalert2';
 import LottieLoader from '../components/LottieLoader';
 import PendingRequestsList from '../components/PendingRequestsList';
 import { queryKeys, fetchGroup } from '../lib/queries';
-import { FaUsers, FaCrown, FaCheckCircle, FaUserSlash, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaUsers, FaCrown, FaCheckCircle, FaUserSlash, FaToggleOn, FaToggleOff, FaTrash } from 'react-icons/fa';
 
 const AdminMembers = () => {
   const [togglingMember, setTogglingMember] = useState(null);
+  const [deletingMember, setDeletingMember] = useState(null);
   const { userData, getAuthHeaders } = useAuth();
   const queryClient = useQueryClient();
 
@@ -20,12 +21,13 @@ const AdminMembers = () => {
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: queryKeys.group(),
     queryFn: () => fetchGroup(getAuthHeaders),
-    enabled: !!userData?.groupId,
+    enabled: !!userData?.groupId && !!userData?.isActive,
     refetchInterval: 1000 * 15,
   });
 
-  const handleUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.group() });
+  const handleUpdate = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.group() });
+    await queryClient.refetchQueries({ queryKey: queryKeys.group() });
   };
 
   const handleToggleMemberStatus = async (member) => {
@@ -68,6 +70,51 @@ const AdminMembers = () => {
       burgerToast.error(error.response?.data?.error || `Failed to ${action} member`);
     } finally {
       setTogglingMember(null);
+    }
+  };
+
+  const handleDeleteMember = async (member) => {
+    const result = await Swal.fire({
+      title: 'Delete Member?',
+      html: `
+        <p style="opacity: 0.7; margin-bottom: 1rem;">Are you sure you want to <strong>permanently delete</strong> <strong>${member.name}</strong> from the group?</p>
+        <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; padding: 0.75rem; background: color-mix(in oklab, #ef4444 15%, transparent); border-radius: 10px; margin-top: 1rem; border: 1px solid color-mix(in oklab, #ef4444 30%, transparent);">
+          <span style="font-size: 1.25rem;">⚠️</span>
+          <div style="text-align: left;">
+            <p style="font-size: 0.9rem; font-weight: 600; margin: 0; color: #ef4444;">This action cannot be undone!</p>
+            <p style="font-size: 0.8rem; margin: 0.25rem 0 0 0; opacity: 0.8;">All their data (meals, costs, deposits) will be removed from the group.</p>
+          </div>
+        </div>
+      `,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Delete Member',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      confirmButtonColor: '#ef4444',
+      customClass: {
+        popup: 'swal-custom-popup',
+        title: 'swal-custom-title',
+        htmlContainer: 'swal-custom-text',
+        icon: 'swal-custom-icon',
+        confirmButton: 'swal-custom-confirm',
+        cancelButton: 'swal-custom-cancel',
+        actions: 'swal-custom-actions',
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    setDeletingMember(member.userId);
+    try {
+      const headers = await getAuthHeaders();
+      await axios.delete(`${API_URL}/group/remove-member/${member.userId}`, { headers });
+      burgerToast.success('Member deleted successfully');
+      handleUpdate();
+    } catch (error) {
+      burgerToast.error(error.response?.data?.error || 'Failed to delete member');
+    } finally {
+      setDeletingMember(null);
     }
   };
 
@@ -159,25 +206,42 @@ const AdminMembers = () => {
                       </td>
                       <td className="text-center">
                         {!isMe && !isMgr && (
-                          <button 
-                            className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`} 
-                            onClick={() => handleToggleMemberStatus(member)} 
-                            disabled={togglingMember === member.userId}
-                          >
-                            {togglingMember === member.userId ? (
-                              <span className="loading loading-spinner loading-xs"></span>
-                            ) : isInactive ? (
-                              <>
-                                <FaToggleOn />
-                                Activate
-                              </>
-                            ) : (
-                              <>
-                                <FaToggleOff />
-                                Deactivate
-                              </>
-                            )}
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`} 
+                              onClick={() => handleToggleMemberStatus(member)} 
+                              disabled={togglingMember === member.userId || deletingMember === member.userId}
+                            >
+                              {togglingMember === member.userId ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                              ) : isInactive ? (
+                                <>
+                                  <FaToggleOn />
+                                  Activate
+                                </>
+                              ) : (
+                                <>
+                                  <FaToggleOff />
+                                  Deactivate
+                                </>
+                              )}
+                            </button>
+                            <button 
+                              className="btn btn-xs btn-error gap-1"
+                              onClick={() => handleDeleteMember(member)}
+                              disabled={deletingMember === member.userId || togglingMember === member.userId}
+                              title="Delete member permanently"
+                            >
+                              {deletingMember === member.userId ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                              ) : (
+                                <>
+                                  <FaTrash />
+                                  Delete
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -233,19 +297,32 @@ const AdminMembers = () => {
                     </div>
                   </div>
                   {!isMe && !isMgr && (
-                    <button
-                      className={`btn btn-xs shrink-0 ml-2 ${isInactive ? 'btn-success' : 'btn-error'}`}
-                      onClick={() => handleToggleMemberStatus(member)}
-                      disabled={togglingMember === member.userId}
-                    >
-                      {togglingMember === member.userId ? (
-                        <span className="loading loading-spinner loading-xs"></span>
-                      ) : isInactive ? (
-                        <FaToggleOn />
-                      ) : (
-                        <FaToggleOff />
-                      )}
-                    </button>
+                    <div className="flex flex-col gap-1 shrink-0 ml-2">
+                      <button
+                        className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'}`}
+                        onClick={() => handleToggleMemberStatus(member)}
+                        disabled={togglingMember === member.userId || deletingMember === member.userId}
+                      >
+                        {togglingMember === member.userId ? (
+                          <span className="loading loading-spinner loading-xs"></span>
+                        ) : isInactive ? (
+                          <FaToggleOn />
+                        ) : (
+                          <FaToggleOff />
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-xs btn-error"
+                        onClick={() => handleDeleteMember(member)}
+                        disabled={deletingMember === member.userId || togglingMember === member.userId}
+                      >
+                        {deletingMember === member.userId ? (
+                          <span className="loading loading-spinner loading-xs"></span>
+                        ) : (
+                          <FaTrash />
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
               );

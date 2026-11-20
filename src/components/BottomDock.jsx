@@ -1,10 +1,9 @@
 import { NavLink } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import ThemeToggle from './ThemeToggle';
 import { useEffect, useRef, useState } from 'react';
 import {
   FaHome, FaTachometerAlt, FaHistory, FaUsers,
-  FaSignInAlt, FaPowerOff,
+  FaSignInAlt, FaEllipsisV,
 } from 'react-icons/fa';
 
 const ITEM_W = 52;
@@ -52,14 +51,22 @@ const DockSeparator = () => (
 );
 
 const BottomDock = () => {
-  const { currentUser, logout, userData, userDataLoading } = useAuth();
-  const hasGroup = !!userData?.groupId;
+  const { currentUser, userData, userDataLoading } = useAuth();
+  const hasGroup = !!userData?.groupId && !!userData?.isActive;
 
   const [visible, setVisible] = useState(true);
   const lastScrollY = useRef(0);
 
+  const openDrawer = () => {
+    const drawerCheckbox = document.getElementById('navbar-drawer');
+    if (drawerCheckbox) {
+      drawerCheckbox.checked = true;
+      drawerCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+
   useEffect(() => {
-    const THRESHOLD = 6; // px — ignore tiny bounces
+    const THRESHOLD = 6;
 
     const onScroll = () => {
       const current = window.scrollY;
@@ -68,10 +75,8 @@ const BottomDock = () => {
       if (Math.abs(diff) < THRESHOLD) return;
 
       if (diff > 0 && current > 60) {
-        // scrolling down and not at the very top
         setVisible(false);
       } else {
-        // scrolling up
         setVisible(true);
       }
 
@@ -120,17 +125,9 @@ const BottomDock = () => {
 
         <DockSeparator />
 
-        {/* Theme toggle */}
-        <div className="flex flex-col items-center gap-0.5 py-1" style={{ width: ITEM_W }}>
-          <div className="flex items-center justify-center" style={{ width: 40, height: 40 }}>
-            <ThemeToggle />
-          </div>
-          <span className="text-[10px] font-semibold text-[#D6BD98]/60 leading-none">Theme</span>
-        </div>
-
-        {/* Slot 4 — Logout or Sign In */}
+        {/* Slot 4 — 3-dot Menu or Sign In */}
         {currentUser
-          ? <DockItem icon={FaPowerOff}  label="Logout"  onClick={logout} />
+          ? <DockItem icon={FaEllipsisV}  label="Menu"  onClick={openDrawer} />
           : <DockItem to="/login" icon={FaSignInAlt} label="Sign In" />
         }
       </div>

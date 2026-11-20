@@ -83,24 +83,56 @@ const PendingRequestsList = () => {
 
   const handleApprove = (requestId) => approveMutation.mutate(requestId);
 
-  const handleReject = async (requestId) => {
+  const handleReject = async (request) => {
+    const requestId = typeof request === 'string' ? request : request?._id;
+    const userName = typeof request === 'object' ? request?.userName : null;
+    const userEmail = typeof request === 'object' ? request?.userEmail : null;
+    const userPhotoURL = typeof request === 'object' ? request?.userPhotoURL : null;
+
+    const userCardHtml = userName ? `
+      <div class="swal-reject-user-card">
+        <div class="swal-reject-avatar">
+          ${userPhotoURL 
+            ? `<img src="${userPhotoURL}" alt="${userName}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`
+            : `<span>${userName.charAt(0).toUpperCase()}</span>`
+          }
+        </div>
+        <div class="swal-reject-user-info">
+          <span class="swal-reject-user-name">${userName}</span>
+          ${userEmail ? `<span class="swal-reject-user-email">${userEmail}</span>` : ''}
+        </div>
+      </div>
+    ` : '';
+
     const result = await Swal.fire({
       title: 'Reject Join Request?',
-      text: 'Are you sure you want to reject this join request?',
+      html: `
+        <p style="margin-bottom: 0.5rem; opacity: 0.85;">Are you sure you want to reject this request to join the group?</p>
+        ${userCardHtml}
+      `,
       input: 'textarea',
-      inputLabel: 'Rejection Reason (Optional)',
+      inputLabel: 'Reason for rejection (Optional):',
       inputPlaceholder: 'Enter reason for rejection...',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, Reject',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: { popup: 'rounded-2xl' },
+      customClass: {
+        popup: 'swal-reject-popup',
+        title: 'swal-reject-title',
+        htmlContainer: 'swal-reject-html',
+        icon: 'swal-reject-icon',
+        inputLabel: 'swal-reject-input-label',
+        input: 'swal-reject-textarea',
+        actions: 'swal-reject-actions',
+        confirmButton: 'swal-reject-confirm',
+        cancelButton: 'swal-reject-cancel',
+      },
     });
+
     if (result.isConfirmed) {
-      rejectMutation.mutate({ requestId, reason: result.value || null });
+      rejectMutation.mutate({ requestId, reason: result.value?.trim() || null });
     }
   };
 
@@ -188,7 +220,7 @@ const PendingRequestsList = () => {
                       }
                     </button>
                     <button
-                      onClick={() => handleReject(request._id)}
+                      onClick={() => handleReject(request)}
                       disabled={isBusy}
                       className="flex-1 btn btn-error btn-sm gap-1.5"
                     >

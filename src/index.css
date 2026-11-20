@@ -961,7 +961,8 @@ body {
   font-size: 0.95rem !important;
 }
 
-.swal-account-icon-warning {
+.swal-account-icon-warning,
+.swal-account-icon-error {
   border-color: var(--color-error) !important;
   color: var(--color-error) !important;
   border-width: 3px !important;
@@ -971,21 +972,23 @@ body {
 }
 
 .swal-account-icon-success {
+  font-size: 14px !important;
+  margin: 0.5rem auto 1.5rem !important;
   border-color: var(--color-success) !important;
   color: var(--color-success) !important;
-  border-width: 3px !important;
-  width: 70px !important;
-  height: 70px !important;
-  margin: 0 auto 1.5rem !important;
 }
 
-.swal-account-icon-error {
-  border-color: var(--color-error) !important;
-  color: var(--color-error) !important;
-  border-width: 3px !important;
-  width: 70px !important;
-  height: 70px !important;
-  margin: 0 auto 1.5rem !important;
+.swal-account-popup .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: color-mix(in oklab, var(--color-success) 35%, transparent) !important;
+}
+
+.swal-account-popup .swal2-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: var(--color-success) !important;
+}
+
+.swal-account-popup .swal2-icon.swal2-success [class^="swal2-success-circular-line"],
+.swal-account-popup .swal2-icon.swal2-success .swal2-success-fix {
+  background-color: var(--color-base-100) !important;
 }
 
 .swal-account-confirm-danger {
@@ -1036,6 +1039,483 @@ body {
 
 .swal-account-cancel:hover {
   background: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200)) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Leave Group SweetAlert Custom Styling - Theme-Adaptive (Light & Dark)
+   ────────────────────────────────────────────────────────────────────────── */
+.swal-leave-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 22px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  padding: 2rem 1.75rem 1.75rem !important;
+  max-width: 490px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.swal-leave-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.swal-leave-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.swal-leave-icon:not(.swal2-success) {
+  width: 68px !important;
+  height: 68px !important;
+  margin: 0 auto 1.25rem !important;
+  border-width: 3px !important;
+}
+
+/* Light mode warning icon */
+:root:not([data-theme="dark"]) .swal-leave-icon.swal2-warning,
+[data-theme="light"] .swal-leave-icon.swal2-warning {
+  border-color: #8E4A43 !important;
+  color: #8E4A43 !important;
+}
+
+/* Dark mode warning icon */
+[data-theme="dark"] .swal-leave-icon.swal2-warning {
+  border-color: #E09A93 !important;
+  color: #E09A93 !important;
+}
+
+/* Error icon */
+.swal-leave-icon.swal2-error {
+  border-color: var(--color-error) !important;
+  color: var(--color-error) !important;
+}
+
+/* Success icon - preserve native 5em geometry so checkmark lines align with 100% precision */
+.swal-leave-icon.swal2-success {
+  font-size: 14px !important;
+  margin: 0.5rem auto 1.25rem !important;
+  border-color: var(--color-success) !important;
+  color: var(--color-success) !important;
+}
+
+.swal-leave-popup .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: color-mix(in oklab, var(--color-success) 35%, transparent) !important;
+}
+
+.swal-leave-popup .swal2-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: var(--color-success) !important;
+}
+
+.swal-leave-popup .swal2-icon.swal2-success [class^="swal2-success-circular-line"],
+.swal-leave-popup .swal2-icon.swal2-success .swal2-success-fix {
+  background-color: var(--color-base-100) !important;
+}
+
+.swal-leave-actions {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 1.5rem !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+/* Danger Confirm Button (Leave) */
+.swal-leave-confirm {
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  flex: 1 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+:root:not([data-theme="dark"]) .swal-leave-confirm,
+[data-theme="light"] .swal-leave-confirm {
+  background: #8E4A43 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(142, 74, 67, 0.3) !important;
+}
+
+:root:not([data-theme="dark"]) .swal-leave-confirm:hover,
+[data-theme="light"] .swal-leave-confirm:hover {
+  background: #753d37 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(142, 74, 67, 0.45) !important;
+}
+
+[data-theme="dark"] .swal-leave-confirm {
+  background: #E09A93 !important;
+  color: #1f2723 !important;
+  box-shadow: 0 4px 14px rgba(224, 154, 147, 0.25) !important;
+}
+
+[data-theme="dark"] .swal-leave-confirm:hover {
+  background: #f0aca5 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(224, 154, 147, 0.35) !important;
+}
+
+/* Primary Confirm Button (Success / OK) */
+.swal-leave-confirm-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-primary-content, #FFFFFF) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 2rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  min-width: 140px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(92, 112, 87, 0.3) !important;
+}
+
+.swal-leave-confirm-primary:hover {
+  opacity: 0.92 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Cancel Button */
+.swal-leave-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  flex: 1 !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.swal-leave-cancel:hover {
+  background: var(--color-base-300) !important;
+  transform: translateY(-1.5px) !important;
+}
+
+/* Alert Boxes Inside Leave Modal */
+.swal-leave-alert {
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.875rem;
+  text-align: left;
+  line-height: 1.45;
+  margin: 0.85rem 0;
+}
+
+:root:not([data-theme="dark"]) .swal-leave-alert-error,
+[data-theme="light"] .swal-leave-alert-error {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+
+[data-theme="dark"] .swal-leave-alert-error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+:root:not([data-theme="dark"]) .swal-leave-alert-success,
+[data-theme="light"] .swal-leave-alert-success {
+  background: #F0FDF4;
+  color: #166534;
+  border: 1px solid #BBF7D0;
+}
+
+[data-theme="dark"] .swal-leave-alert-success {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86EFAC;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+:root:not([data-theme="dark"]) .swal-leave-alert-neutral,
+[data-theme="light"] .swal-leave-alert-neutral {
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent);
+}
+
+[data-theme="dark"] .swal-leave-alert-neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: #D6BD98;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Summary Stats Grid */
+.swal-leave-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.swal-leave-stat-card {
+  padding: 0.65rem 0.5rem;
+  border-radius: 12px;
+  text-align: center;
+}
+
+:root:not([data-theme="dark"]) .swal-leave-stat-card,
+[data-theme="light"] .swal-leave-stat-card {
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+[data-theme="dark"] .swal-leave-stat-card {
+  background: rgba(214, 189, 152, 0.06);
+  border: 1px solid rgba(214, 189, 152, 0.14);
+}
+
+.swal-leave-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  display: block;
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+
+.swal-leave-stat-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-base-content);
+}
+
+.swal-leave-notice {
+  font-size: 0.8rem;
+  opacity: 0.68;
+  margin-top: 0.85rem;
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Reject Join Request SweetAlert Custom Styling - Theme-Adaptive (Light & Dark)
+   ────────────────────────────────────────────────────────────────────────── */
+.swal-reject-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 22px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  padding: 2rem 1.75rem 1.75rem !important;
+  max-width: 480px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.swal-reject-title {
+  color: var(--color-base-content) !important;
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.swal-reject-html {
+  color: var(--color-base-content) !important;
+  font-size: 0.95rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.swal-reject-icon {
+  width: 68px !important;
+  height: 68px !important;
+  margin: 0 auto 1.25rem !important;
+  border-width: 3px !important;
+}
+
+/* Light mode warning icon */
+:root:not([data-theme="dark"]) .swal-reject-icon.swal2-warning,
+[data-theme="light"] .swal-reject-icon.swal2-warning {
+  border-color: #8E4A43 !important;
+  color: #8E4A43 !important;
+}
+
+/* Dark mode warning icon */
+[data-theme="dark"] .swal-reject-icon.swal2-warning {
+  border-color: #E09A93 !important;
+  color: #E09A93 !important;
+}
+
+/* Requester Card inside alert */
+.swal-reject-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0 0.85rem;
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent);
+  border-radius: 14px;
+  text-align: left;
+}
+
+.swal-reject-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.swal-reject-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.swal-reject-user-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-base-content);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swal-reject-user-email {
+  font-size: 0.8rem;
+  opacity: 0.65;
+  color: var(--color-base-content);
+  line-height: 1.25;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Textarea & Label styling */
+.swal-reject-popup .swal2-input-label,
+.swal-reject-input-label {
+  display: block !important;
+  text-align: left !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: var(--color-base-content) !important;
+  margin: 0 0 0.45rem !important;
+  opacity: 0.85 !important;
+}
+
+.swal-reject-popup .swal2-textarea,
+.swal-reject-textarea {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 85px !important;
+  max-height: 160px !important;
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 0.85rem !important;
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+  margin: 0 0 0.5rem !important;
+  font-family: inherit !important;
+  transition: all 0.2s ease !important;
+  resize: vertical !important;
+}
+
+.swal-reject-popup .swal2-textarea:focus,
+.swal-reject-textarea:focus {
+  outline: none !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 22%, transparent) !important;
+  background: var(--color-base-100) !important;
+}
+
+.swal-reject-popup .swal2-textarea::placeholder,
+.swal-reject-textarea::placeholder {
+  color: color-mix(in oklab, var(--color-base-content) 45%, transparent) !important;
+  font-size: 0.875rem !important;
+}
+
+/* Actions & Buttons */
+.swal-reject-actions {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 1.5rem !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+/* Danger Confirm Button (Reject) */
+.swal-reject-confirm {
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  flex: 1 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+:root:not([data-theme="dark"]) .swal-reject-confirm,
+[data-theme="light"] .swal-reject-confirm {
+  background: #8E4A43 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(142, 74, 67, 0.3) !important;
+}
+
+:root:not([data-theme="dark"]) .swal-reject-confirm:hover,
+[data-theme="light"] .swal-reject-confirm:hover {
+  background: #753d37 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(142, 74, 67, 0.45) !important;
+}
+
+[data-theme="dark"] .swal-reject-confirm {
+  background: #E09A93 !important;
+  color: #1f2723 !important;
+  box-shadow: 0 4px 14px rgba(224, 154, 147, 0.25) !important;
+}
+
+[data-theme="dark"] .swal-reject-confirm:hover {
+  background: #f0aca5 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(224, 154, 147, 0.35) !important;
+}
+
+/* Cancel Button */
+.swal-reject-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.5rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  flex: 1 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+.swal-reject-cancel:hover {
+  background: var(--color-base-300) !important;
+  transform: translateY(-1.5px) !important;
 }
 
 /* Fine/Jorimana page colors: derived from the active DaisyUI theme */
@@ -1157,8 +1637,8 @@ body {
   --md-input-ring: color-mix(in oklab, var(--color-primary) 15%, transparent);
   --md-preview-bg: color-mix(in oklab, var(--color-base-content) 4%, transparent);
   --md-preview-border: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  --md-announcement-icon: var(--color-warning);
-  --md-announcement-btn: var(--color-warning);
+  --md-announcement-icon: var(--color-info);
+  --md-announcement-btn: var(--color-info);
   --md-poll-icon: var(--color-info);
   --md-poll-btn: var(--color-info);
 }
@@ -1367,4 +1847,186 @@ body {
 
 .swal-deactivate-cancel:hover {
   background: color-mix(in oklab, var(--color-neutral) 16%, var(--color-base-200)) !important;
+}
+
+/* SweetAlert2 Custom Styling */
+.swal-custom-popup {
+  border-radius: 1rem !important;
+  padding: 2rem !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.swal-custom-title {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal-custom-text {
+  font-size: 1rem !important;
+  opacity: 0.7 !important;
+  margin-bottom: 1rem !important;
+}
+
+.swal-custom-icon {
+  border-width: 3px !important;
+  width: 5rem !important;
+  height: 5rem !important;
+  margin: 0 auto 0.5rem !important;
+}
+
+/* Reduce spacing for error icon specifically */
+.swal-custom-icon.swal2-error {
+  margin: 0 auto 0.25rem !important;
+}
+
+.swal-custom-actions {
+  gap: 1rem !important;
+  margin-top: 0.75rem !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+}
+
+.swal-custom-confirm {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 2rem !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.swal-custom-confirm:hover {
+  background-color: #dc2626 !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-custom-cancel {
+  background-color: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid var(--color-base-content) !important;
+  border-opacity: 0.15 !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 2rem !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.swal-custom-cancel:hover {
+  background-color: var(--color-base-300) !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-custom-error-btn {
+  background-color: #4f7396 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 2.5rem !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  min-width: 120px !important;
+}
+
+.swal-custom-error-btn:hover {
+  background-color: #3d5a75 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Dark mode adjustments for SweetAlert */
+[data-theme="dark"] .swal-custom-popup {
+  background-color: #2a3832 !important;
+}
+
+[data-theme="dark"] .swal-custom-title {
+  color: #d4c5a9 !important;
+}
+
+[data-theme="dark"] .swal-custom-text {
+  color: #9ca3af !important;
+}
+
+[data-theme="dark"] .swal-custom-icon.swal2-warning {
+  border-color: #f59e95 !important;
+  color: #f59e95 !important;
+}
+
+[data-theme="dark"] .swal-custom-confirm {
+  background-color: #f59e95 !important;
+}
+
+[data-theme="dark"] .swal-custom-confirm:hover {
+  background-color: #f7b3ab !important;
+}
+
+[data-theme="dark"] .swal-custom-cancel {
+  /* Uses base-200 which is already theme-aware */
+}
+
+[data-theme="dark"] .swal-custom-cancel:hover {
+  /* Uses base-300 which is already theme-aware */
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .swal-custom-popup {
+  background-color: #e8e5dc !important;
+}
+
+[data-theme="light"] .swal-custom-title {
+  color: #3e4a3d !important;
+}
+
+[data-theme="light"] .swal-custom-text {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .swal-custom-icon.swal2-warning {
+  border-color: #8b4a44 !important;
+  color: #8b4a44 !important;
+}
+
+[data-theme="light"] .swal-custom-confirm {
+  background-color: #8b4a44 !important;
+}
+
+[data-theme="light"] .swal-custom-confirm:hover {
+  background-color: #753d38 !important;
+}
+
+[data-theme="light"] .swal-custom-cancel {
+  /* Uses base-200 which is already theme-aware */
+}
+
+[data-theme="light"] .swal-custom-cancel:hover {
+  /* Uses base-300 which is already theme-aware */
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Group Setup Premium Forms - Light Mode Enhancements
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root, [data-theme="light"] {
+  --group-setup-primary: #5C7057;
+  --group-setup-primary-light: #3F6339;
+  --group-setup-secondary: #6B8766;
+  --group-setup-secondary-light: #4F6B4A;
+  --group-setup-text: #2d3833;
+  --group-setup-text-muted: #5a6b5e;
+}
+
+[data-theme="dark"] {
+  --group-setup-primary: #79946F;
+  --group-setup-primary-light: #89A482;
+  --group-setup-secondary: #89A482;
+  --group-setup-secondary-light: #9BC794;
+  --group-setup-text: #d4c5a9;
+  --group-setup-text-muted: #9ca3af;
 }

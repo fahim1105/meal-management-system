@@ -6,6 +6,15 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Helper function to check if a member is active in the group
+const isMemberActive = async (groupId, userId) => {
+  const group = await Group.findById(groupId);
+  if (!group) return false;
+  
+  const member = group.members.find(m => m.userId === userId);
+  return member && member.status === 'active';
+};
+
 router.get('/:month', verifyToken, async (req, res) => {
   try {
     const { month } = req.params;

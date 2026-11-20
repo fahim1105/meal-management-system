@@ -14,10 +14,24 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
       text: 'This action cannot be undone',
       icon: 'warning',
       showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      background: 'var(--color-base-100)',
+      color: 'var(--color-base-content)',
+      iconColor: '#ef4444',
       confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, delete it',
-      cancelButtonText: 'Cancel'
+      cancelButtonColor: 'transparent',
+      customClass: {
+        popup: 'swal-custom-popup',
+        title: 'swal-custom-title',
+        htmlContainer: 'swal-custom-text',
+        confirmButton: 'swal-custom-confirm',
+        cancelButton: 'swal-custom-cancel',
+        icon: 'swal-custom-icon',
+        actions: 'swal-custom-actions'
+      },
+      buttonsStyling: false
     });
 
     if (result.isConfirmed) {
@@ -31,14 +45,36 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
           text: 'Announcement has been deleted',
           icon: 'success',
           timer: 2000,
-          showConfirmButton: false
+          showConfirmButton: false,
+          background: 'var(--color-base-100)',
+          color: 'var(--color-base-content)',
+          iconColor: '#10b981',
+          customClass: {
+            popup: 'swal-custom-popup',
+            title: 'swal-custom-title',
+            htmlContainer: 'swal-custom-text',
+            icon: 'swal-custom-icon'
+          }
         });
       } catch (error) {
         console.error('Error deleting announcement:', error);
         Swal.fire({
           title: 'Error',
           text: 'Failed to delete announcement',
-          icon: 'error'
+          icon: 'error',
+          confirmButtonText: 'OK',
+          background: 'var(--color-base-100)',
+          color: 'var(--color-base-content)',
+          iconColor: '#ef4444',
+          confirmButtonColor: 'transparent',
+          customClass: {
+            popup: 'swal-custom-popup',
+            title: 'swal-custom-title',
+            htmlContainer: 'swal-custom-text',
+            confirmButton: 'swal-custom-error-btn',
+            icon: 'swal-custom-icon'
+          },
+          buttonsStyling: false
         });
       } finally {
         setDeleting(false);
@@ -57,17 +93,17 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
 
   return (
     <div className="w-full">
-      <div className={`bg-gradient-to-r from-warning/30 to-warning/20 dark:from-warning/20 dark:to-warning/10 border-l-4 border-warning rounded-lg p-4 ${
-        message.isPinned ? 'ring-2 ring-warning' : ''
+      <div className={`bg-gradient-to-r from-info/30 to-info/20 dark:from-info/20 dark:to-info/10 border-l-4 border-info rounded-lg p-4 ${
+        message.isPinned ? 'ring-2 ring-info' : ''
       }`}>
         <div className="flex items-start gap-3">
-          <div className="bg-warning/20 p-2 rounded-full shrink-0">
-            <FaBullhorn className="text-warning text-lg" />
+          <div className="bg-info/20 p-2 rounded-full shrink-0">
+            <FaBullhorn className="text-info text-lg" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="badge badge-warning gap-1 font-semibold">
+                <span className="badge badge-info gap-1 font-semibold">
                   <FaBullhorn className="text-xs" />
                   ANNOUNCEMENT
                 </span>
@@ -104,7 +140,7 @@ const AnnouncementItem = ({ message, groupId, isManager }) => {
                   className="w-6 h-6 rounded-full"
                 />
               ) : (
-                <div className="w-6 h-6 rounded-full bg-warning/20 flex items-center justify-center text-xs font-bold text-warning">
+                <div className="w-6 h-6 rounded-full bg-info/20 flex items-center justify-center text-xs font-bold text-info">
                   {getDisplayName(message.senderName)?.charAt(0).toUpperCase()}
                 </div>
               )}

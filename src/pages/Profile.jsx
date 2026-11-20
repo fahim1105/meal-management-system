@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import burgerToast from '../components/BurgerToast';
 import Swal from 'sweetalert2';
@@ -18,6 +18,7 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
@@ -26,7 +27,7 @@ const Profile = () => {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const fileInputRef = useRef(null);
   
-  const { getAuthHeaders, userData, fetchUserData, currentUser, updateProfileData, changePassword } = useAuth();
+  const { getAuthHeaders, userData, fetchUserData, currentUser, updateProfileData, changePassword, refreshUserToken } = useAuth();
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -93,7 +94,7 @@ const Profile = () => {
   };
 
   const myMemberInfo = group?.members?.find(m => m.userId === userData?.uid);
-  const joinedDate = myMemberInfo?.joinedAt
+  const joinedDate = (userData?.groupId && myMemberInfo?.status === 'active' && myMemberInfo?.joinedAt)
     ? new Date(myMemberInfo.joinedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : 'N/A';
 
@@ -113,30 +114,71 @@ const Profile = () => {
   const handleLeaveGroup = async () => {
     const financialStatus = await getUserFinancialStatus();
     
-    let warningMessage = '';
+    let alertBanner = '';
     if (financialStatus.balance < 0) {
-      warningMessage = `<p style="color: var(--color-error); font-weight: bold; margin-top: 0.5rem;">⚠️ You have ৳${Math.abs(financialStatus.balance).toFixed(2)} outstanding!</p>`;
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-error">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">⚠️</span>
+          <div>
+            <strong>Outstanding Balance:</strong> You have an unpaid amount of <strong>৳${Math.abs(financialStatus.balance).toFixed(2)}</strong>. Please settle before leaving.
+          </div>
+        </div>
+      `;
     } else if (financialStatus.balance > 0) {
-      warningMessage = `<p style="color: var(--color-success); font-weight: bold; margin-top: 0.5rem;">✓ You will receive ৳${financialStatus.balance.toFixed(2)}</p>`;
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-success">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <div>
+            <strong>Refund Due:</strong> You have a surplus balance of <strong>৳${financialStatus.balance.toFixed(2)}</strong> to receive from the mess.
+          </div>
+        </div>
+      `;
+    } else {
+      alertBanner = `
+        <div class="swal-leave-alert swal-leave-alert-neutral">
+          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <div>
+            <strong>Account Balanced:</strong> Your mess finances are fully settled (৳0.00).
+          </div>
+        </div>
+      `;
     }
 
     const result = await Swal.fire({
       title: 'Leave Group?',
       html: `
-        <p>Are you sure you want to leave <strong>${group?.name}</strong>?</p>
-        ${warningMessage}
-        <div style="margin-top: 1rem; padding: 0.75rem; background: var(--color-base-200); border-radius: 0.75rem; text-align: left;">
-          <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Your Summary:</strong></p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Total Meals: ${financialStatus.totalMeals}</p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Deposit: ৳${financialStatus.deposit.toFixed(2)}</p>
-          <p style="font-size: 0.875rem; margin: 0.25rem 0;">Cost: ৳${financialStatus.cost.toFixed(2)}</p>
+        <p style="margin-bottom: 0.25rem;">Are you sure you want to leave <strong>${group?.name || 'this group'}</strong>?</p>
+        ${alertBanner}
+        <div class="swal-leave-stats-grid">
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Total Meals</span>
+            <span class="swal-leave-stat-val">${financialStatus.totalMeals || 0}</span>
+          </div>
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Deposit</span>
+            <span class="swal-leave-stat-val">৳${Number(financialStatus.deposit || 0).toFixed(2)}</span>
+          </div>
+          <div class="swal-leave-stat-card">
+            <span class="swal-leave-stat-label">Cost</span>
+            <span class="swal-leave-stat-val">৳${Number(financialStatus.cost || 0).toFixed(2)}</span>
+          </div>
         </div>
+        <p class="swal-leave-notice">⚠️ You will immediately lose access to meal bookings, bazar schedule, and group features.</p>
       `,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Yes, Leave Group',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
+      customClass: {
+        popup: 'swal-leave-popup',
+        title: 'swal-leave-title',
+        htmlContainer: 'swal-leave-html',
+        icon: 'swal-leave-icon',
+        actions: 'swal-leave-actions',
+        confirmButton: 'swal-leave-confirm',
+        cancelButton: 'swal-leave-cancel',
+      }
     });
 
     if (!result.isConfirmed) return;
@@ -146,14 +188,32 @@ const Profile = () => {
       const headers = await getAuthHeaders();
       const response = await axios.post(`${API_URL}/group/leave`, {}, { headers });
       
+      // Clear all cached group & request queries from TanStack Query
+      queryClient.removeQueries({ queryKey: queryKeys.myRequestStatus() });
+      queryClient.removeQueries({ queryKey: queryKeys.group() });
+      queryClient.clear();
+
       await Swal.fire({
-        title: 'Success!',
-        text: response.data.groupDeleted ? 'Group deleted successfully' : 'You have left the group',
+        title: 'Successfully Left Group',
+        text: 'You have left the group successfully.',
         icon: 'success',
+        iconColor: 'var(--color-success)',
         confirmButtonText: 'OK',
+        customClass: {
+          popup: 'swal-leave-popup',
+          title: 'swal-leave-title',
+          htmlContainer: 'swal-leave-html',
+          icon: 'swal-leave-icon',
+          actions: 'swal-leave-actions',
+          confirmButton: 'swal-leave-confirm-primary',
+        }
       });
 
+      // Refresh auth tokens and user data so userData.groupId becomes null
+      await refreshUserToken();
       await fetchUserData(currentUser);
+
+      // Now navigate to /group-setup with fresh null group state
       navigate('/group-setup');
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Failed to leave group';
@@ -163,6 +223,15 @@ const Profile = () => {
           title: 'Cannot Leave!',
           text: 'Manager must transfer role to another member before leaving',
           icon: 'error',
+          confirmButtonText: 'OK',
+          customClass: {
+            popup: 'swal-leave-popup',
+            title: 'swal-leave-title',
+            htmlContainer: 'swal-leave-html',
+            icon: 'swal-leave-icon',
+            actions: 'swal-leave-actions',
+            confirmButton: 'swal-leave-confirm-primary',
+          }
         });
       } else {
         burgerToast.error(errorMessage);
@@ -240,26 +309,26 @@ const Profile = () => {
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
 
           {!editingProfile ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-lg border border-primary/20">
                 <FaUser className="text-primary text-lg flex-shrink-0" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-base-content/60 mb-0.5">Full Name</p>
-                  <p className="font-bold text-base-content">{userData?.name}</p>
+                  <p className="font-bold text-base-content truncate">{userData?.name}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-lg border border-primary/20">
                 <FaEnvelope className="text-primary text-lg flex-shrink-0" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-base-content/60 mb-0.5">Email</p>
-                  <p className="font-bold text-base-content text-sm break-all">{userData?.email}</p>
+                  <p className="font-bold text-base-content text-sm truncate">{userData?.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-lg border border-primary/20">
                 <FaCalendarAlt className="text-primary text-lg flex-shrink-0" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-base-content/60 mb-0.5">Joined Group</p>
-                  <p className="font-bold text-base-content">{joinedDate}</p>
+                  <p className="font-bold text-base-content truncate">{joinedDate}</p>
                 </div>
               </div>
             </div>
@@ -394,7 +463,7 @@ const Profile = () => {
               </div>
               <div className="flex gap-2">
                 <button 
-                  className={`btn btn-primary flex-1 shadow-md gap-2 ${passwordSaving ? 'loading' : ''}`} 
+                  className={`btn bg-gradient-to-br from-primary via-primary to-primary/80 border-none text-white flex-1 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 gap-2 ${passwordSaving ? 'loading' : ''}`} 
                   onClick={handleChangePassword} 
                   disabled={passwordSaving}
                 >
@@ -402,13 +471,14 @@ const Profile = () => {
                   Save Password
                 </button>
                 <button 
-                  className="btn btn-ghost flex-1" 
+                  className="btn bg-base-200 hover:bg-base-300 border-2 border-base-300 text-base-content flex-1 shadow-md hover:shadow-lg transition-all duration-200" 
                   onClick={() => {
                     setEditingPassword(false);
                     setCurrentPassword('');
                     setNewPassword('');
                     setConfirmPassword('');
                   }}
+                  disabled={passwordSaving}
                 >
                   <FaTimes /> Cancel
                 </button>

@@ -24,6 +24,18 @@ const userSchema = new mongoose.Schema({
     ref: 'Group',
     default: null
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  leftAt: {
+    type: Date,
+    default: null
+  },
+  scheduledDeletion: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

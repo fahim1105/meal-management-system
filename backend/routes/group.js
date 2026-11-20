@@ -12,8 +12,8 @@ const router = express.Router();
 const setUserClaims = async (uid, groupId) => {
   try {
     if (admin.apps.length > 0) {
-      await admin.auth().setCustomUserClaims(uid, { 
-        groupId: groupId ? String(groupId) : null 
+      await admin.auth().setCustomUserClaims(uid, {
+        groupId: groupId ? String(groupId) : null
       });
     }
   } catch (error) {
@@ -35,12 +35,13 @@ router.post('/create', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.groupId) {
+    // Check if user is in an ACTIVE group (not just has groupId)
+    if (user.groupId && user.isActive) {
       return res.status(400).json({ error: 'User already in a group' });
     }
 
     const groupCode = generateGroupCode();
-    
+
     const group = new Group({
       name,
       groupCode,
@@ -48,17 +49,26 @@ router.post('/create', verifyToken, async (req, res) => {
       members: [{
         userId: uid,
         name: user.name,
-        email: user.email
+        email: user.email,
+        status: 'active',
+        joinedAt: new Date()
       }]
     });
 
     await group.save();
 
+    // Clear any previous group data and set new group
     user.groupId = group._id;
+    user.isActive = true;
+    user.leftAt = null;
+    user.scheduledDeletion = null;
     await user.save();
 
     // Set custom claims with new group ID
     await setUserClaims(uid, group._id);
+
+    // Delete any lingering join requests for this user
+    await JoinRequest.deleteMany({ userId: uid });
 
     res.status(201).json({ group });
   } catch (error) {
@@ -76,7 +86,8 @@ router.post('/join', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.groupId) {
+    // Check if user is in an ACTIVE group (not just has groupId)
+    if (user.groupId && user.isActive) {
       return res.status(400).json({ error: 'User already in a group' });
     }
 
@@ -85,15 +96,36 @@ router.post('/join', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    // Check if user was previously a member (inactive)
+    // Check if user was previously a member (inactive) in THIS group
     const existingMemberIndex = group.members.findIndex(m => m.userId === uid);
-    
+
     if (existingMemberIndex !== -1) {
-      // User is rejoining - reactivate them
+      // User is rejoining SAME group - reactivate them and update joinedAt to the new date
       group.members[existingMemberIndex].status = 'active';
+      group.members[existingMemberIndex].joinedAt = new Date();
       group.members[existingMemberIndex].rejoinedAt = new Date();
+      group.members[existingMemberIndex].leftAt = null;
+      await group.save();
+
+      // Reactivate user
+      user.groupId = group._id;
+      user.isActive = true;
+      user.leftAt = null;
+      user.scheduledDeletion = null;
+      await user.save();
+      await setUserClaims(uid, group._id);
+
+      return res.json({ message: 'Rejoined group successfully', group, rejoined: true });
     } else {
-      // New member - add them
+      // New member OR joining DIFFERENT group
+      if (user.groupId && !user.isActive) {
+        const oldGroup = await Group.findById(user.groupId);
+        if (oldGroup) {
+          oldGroup.members = oldGroup.members.filter(m => m.userId !== uid);
+          await oldGroup.save();
+        }
+      }
+
       group.members.push({
         userId: uid,
         name: user.name,
@@ -105,7 +137,11 @@ router.post('/join', verifyToken, async (req, res) => {
 
     await group.save();
 
+    // Set new group and clear any old inactive status
     user.groupId = group._id;
+    user.isActive = true;
+    user.leftAt = null;
+    user.scheduledDeletion = null;
     await user.save();
 
     // Set custom claims with new group ID
@@ -120,24 +156,24 @@ router.post('/join', verifyToken, async (req, res) => {
 router.get('/my-group', verifyToken, async (req, res) => {
   try {
     const user = await User.findOne({ uid: req.user.uid });
-    
+
     if (!user || !user.groupId) {
       return res.status(404).json({ error: 'No group found' });
     }
 
     const group = await Group.findById(user.groupId);
-    
+
     // Attach photoURL from User collection to each member
     const memberUserIds = group.members.map(m => m.userId);
     const users = await User.find({ uid: { $in: memberUserIds } }, 'uid photoURL');
     const photoMap = Object.fromEntries(users.map(u => [u.uid, u.photoURL]));
-    
+
     const groupObj = group.toObject();
     groupObj.members = groupObj.members.map(m => ({
       ...m,
       photoURL: photoMap[m.userId] || null
     }));
-    
+
     res.json({ group: groupObj });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -150,8 +186,16 @@ router.post('/toggle-member-status', verifyToken, async (req, res) => {
     const uid = req.user.uid;
 
     const user = await User.findOne({ uid });
-    if (!user || !user.groupId) {
-      return res.status(404).json({ error: 'No group found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
     }
 
     const group = await Group.findById(user.groupId);
@@ -190,12 +234,20 @@ router.post('/transfer-manager', verifyToken, async (req, res) => {
     const uid = req.user.uid;
 
     const user = await User.findOne({ uid });
-    if (!user || !user.groupId) {
-      return res.status(404).json({ error: 'No group found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
     }
 
     const group = await Group.findById(user.groupId);
-    
+
     if (group.managerId !== uid) {
       return res.status(403).json({ error: 'Only manager can transfer role' });
     }
@@ -264,40 +316,86 @@ router.post('/leave', verifyToken, async (req, res) => {
     const uid = req.user.uid;
 
     const user = await User.findOne({ uid });
-    if (!user || !user.groupId) {
-      return res.status(404).json({ error: 'No group found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user has no group already, clear claims & join requests and succeed
+    if (!user.groupId) {
+      user.isActive = false;
+      user.leftAt = null;
+      user.scheduledDeletion = null;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
     }
 
     const group = await Group.findById(user.groupId);
-    
+    if (!group) {
+      user.groupId = null;
+      user.isActive = false;
+      user.leftAt = null;
+      user.scheduledDeletion = null;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
+    }
+
     // Check if user is the manager
     if (group.managerId === uid) {
       // If only one member, allow deletion
       if (group.members.length === 1) {
         await Group.findByIdAndDelete(group._id);
         user.groupId = null;
+        user.isActive = false;
+        user.leftAt = null;
+        user.scheduledDeletion = null;
         await user.save();
         await setUserClaims(uid, null);
+        await JoinRequest.deleteMany({ groupId: group._id });
         return res.json({ message: 'Group deleted successfully', groupDeleted: true });
       } else {
         return res.status(403).json({ error: 'Manager must transfer role before leaving' });
       }
     }
 
-    // Mark member as inactive instead of removing
+    const now = new Date();
+
+    // Mark member as inactive in the group (so historical financial calculations remain intact)
     const memberIndex = group.members.findIndex(m => m.userId === uid);
     if (memberIndex !== -1) {
       group.members[memberIndex].status = 'inactive';
-      group.members[memberIndex].leftAt = new Date();
+      group.members[memberIndex].leftAt = now;
       await group.save();
     }
 
-    // Remove group from user
+    // User leaves group completely: NO GROUP ACCESS anymore
     user.groupId = null;
+    user.isActive = false;
+    user.leftAt = now;
+    user.scheduledDeletion = null;
     await user.save();
+
+    // Immediately clear Firebase custom claims
     await setUserClaims(uid, null);
 
-    res.json({ message: 'Left group successfully', group });
+    // Delete any join request for this user so they don't linger
+    await JoinRequest.deleteMany({ userId: uid });
+
+    res.json({
+      message: 'Left group successfully',
+      groupDeleted: false
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -308,12 +406,28 @@ router.delete('/delete', verifyToken, async (req, res) => {
     const uid = req.user.uid;
 
     const user = await User.findOne({ uid });
-    if (!user || !user.groupId) {
-      return res.status(404).json({ error: 'No group found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
     }
 
     const group = await Group.findById(user.groupId);
-    
+    if (!group) {
+      user.groupId = null;
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Group deleted successfully' });
+    }
+
     // Only manager can delete group
     if (group.managerId !== uid) {
       return res.status(403).json({ error: 'Only manager can delete group' });
@@ -326,8 +440,12 @@ router.delete('/delete', verifyToken, async (req, res) => {
 
     await Group.findByIdAndDelete(group._id);
     user.groupId = null;
+    user.isActive = false;
+    user.leftAt = null;
+    user.scheduledDeletion = null;
     await user.save();
     await setUserClaims(uid, null);
+    await JoinRequest.deleteMany({ groupId: group._id });
 
     res.json({ message: 'Group deleted successfully' });
   } catch (error) {
@@ -351,8 +469,8 @@ router.post('/request-join', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if user already in a group
-    if (user.groupId) {
+    // Check if user is in an ACTIVE group (not just has groupId)
+    if (user.groupId && user.isActive) {
       return res.status(400).json({ error: 'You are already in a group' });
     }
 
@@ -410,8 +528,16 @@ router.get('/join-requests', verifyToken, async (req, res) => {
 
     // Find user's group
     const user = await User.findOne({ uid });
-    if (!user || !user.groupId) {
-      return res.status(404).json({ error: 'No group found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
     }
 
     const group = await Group.findById(user.groupId);
@@ -478,9 +604,18 @@ router.post('/approve-request', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Requesting user not found' });
     }
 
-    // Check if user is still eligible (not in another group)
-    if (requestingUser.groupId) {
+    // Check if user is in an ACTIVE group (not just has groupId)
+    if (requestingUser.groupId && requestingUser.isActive) {
       return res.status(409).json({ error: 'User is already in another group' });
+    }
+
+    // If user has old inactive groupId from different group, clean it up
+    if (requestingUser.groupId && !requestingUser.isActive && requestingUser.groupId.toString() !== group._id.toString()) {
+      const oldGroup = await Group.findById(requestingUser.groupId);
+      if (oldGroup) {
+        oldGroup.members = oldGroup.members.filter(m => m.userId !== joinRequest.userId);
+        await oldGroup.save();
+      }
     }
 
     // Start transaction-like operations
@@ -490,14 +625,16 @@ router.post('/approve-request', verifyToken, async (req, res) => {
     joinRequest.reviewedBy = uid;
     await joinRequest.save();
 
-    // Check if user was previously a member (inactive)
+    // Check if user was previously a member (inactive) in THIS group
     const existingMemberIndex = group.members.findIndex(m => m.userId === joinRequest.userId);
-    
+
     let member;
     if (existingMemberIndex !== -1) {
-      // User is rejoining - reactivate them
+      // User is rejoining SAME group - reactivate them and update joinedAt to the new date!
       group.members[existingMemberIndex].status = 'active';
+      group.members[existingMemberIndex].joinedAt = new Date();
       group.members[existingMemberIndex].rejoinedAt = new Date();
+      group.members[existingMemberIndex].leftAt = null;
       member = group.members[existingMemberIndex];
     } else {
       // New member - add them
@@ -513,8 +650,11 @@ router.post('/approve-request', verifyToken, async (req, res) => {
 
     await group.save();
 
-    // Update user's groupId
+    // Update user's groupId and clear any inactive status
     requestingUser.groupId = group._id;
+    requestingUser.isActive = true;
+    requestingUser.leftAt = null;
+    requestingUser.scheduledDeletion = null;
     await requestingUser.save();
 
     // Set custom claims with new group ID
@@ -584,6 +724,16 @@ router.get('/my-request-status', verifyToken, async (req, res) => {
     const uid = req.user.uid;
     const { groupCode } = req.query;
 
+    const user = await User.findOne({ uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Safety: If user has no active group, delete any stale 'approved' requests
+    if (!user.groupId || !user.isActive) {
+      await JoinRequest.deleteMany({ userId: uid, status: 'approved' });
+    }
+
     const query = { userId: uid };
 
     // If groupCode provided, find group and filter by groupId
@@ -605,6 +755,17 @@ router.get('/my-request-status', verifyToken, async (req, res) => {
       });
     }
 
+    // If request was approved, verify user is actually active in that group
+    if (request.status === 'approved') {
+      if (!user.groupId || !user.isActive || user.groupId.toString() !== request.groupId.toString()) {
+        await JoinRequest.findByIdAndDelete(request._id);
+        return res.json({
+          hasRequest: false,
+          request: null
+        });
+      }
+    }
+
     res.json({
       hasRequest: true,
       request
@@ -615,36 +776,85 @@ router.get('/my-request-status', verifyToken, async (req, res) => {
   }
 });
 
-// DELETE /api/group/cancel-request - Cancel user's own join request
+// DELETE /api/group/cancel-request - Cancel or clear user's own join request
 router.delete('/cancel-request', verifyToken, async (req, res) => {
   try {
-    const { requestId } = req.body;
     const uid = req.user.uid;
+    const requestId = req.body?.requestId || req.query?.requestId;
 
-    // Find join request
-    const joinRequest = await JoinRequest.findById(requestId);
-    if (!joinRequest) {
-      return res.status(404).json({ error: 'Join request not found' });
+    if (requestId) {
+      const joinRequest = await JoinRequest.findById(requestId);
+      if (joinRequest) {
+        if (joinRequest.userId !== uid) {
+          return res.status(403).json({ error: 'You can only cancel your own requests' });
+        }
+        await JoinRequest.findByIdAndDelete(requestId);
+      }
+    } else {
+      // If no requestId provided, delete any join request for this user
+      await JoinRequest.deleteMany({ userId: uid });
     }
-
-    // Verify request belongs to user
-    if (joinRequest.userId !== uid) {
-      return res.status(403).json({ error: 'You can only cancel your own requests' });
-    }
-
-    // Verify request is pending
-    if (joinRequest.status !== 'pending') {
-      return res.status(400).json({ error: 'Only pending requests can be cancelled' });
-    }
-
-    // Delete the request
-    await JoinRequest.findByIdAndDelete(requestId);
 
     res.json({
       message: 'Join request cancelled successfully'
     });
   } catch (error) {
     console.error('Error in cancel-request:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/group/remove-member/:memberId - Manager removes a member from group
+router.delete('/remove-member/:memberId', verifyToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const { memberId } = req.params;
+
+    const user = await User.findOne({ uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.groupId) {
+      user.isActive = false;
+      await user.save();
+      await setUserClaims(uid, null);
+      await JoinRequest.deleteMany({ userId: uid });
+      return res.json({ message: 'Left group successfully', groupDeleted: false });
+    }
+
+    const group = await Group.findById(user.groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    if (group.managerId !== uid) {
+      return res.status(403).json({ error: 'Only manager can remove members' });
+    }
+
+    if (memberId === uid) {
+      return res.status(400).json({ error: 'Cannot remove yourself' });
+    }
+
+    // Mark as inactive or remove from group
+    group.members = group.members.filter(m => m.userId !== memberId);
+    await group.save();
+
+    // Clean up removed user
+    const removedUser = await User.findOne({ uid: memberId });
+    if (removedUser) {
+      removedUser.groupId = null;
+      removedUser.isActive = false;
+      removedUser.leftAt = new Date();
+      removedUser.scheduledDeletion = null;
+      await removedUser.save();
+      await setUserClaims(memberId, null);
+      await JoinRequest.deleteMany({ userId: memberId });
+    }
+
+    res.json({ message: 'Member removed successfully', group });
+  } catch (error) {
+    console.error('Error in remove-member:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -1,8 +1,10 @@
 import cron from 'node-cron';
 import BazarSchedule from '../models/BazarSchedule.js';
 import Group from '../models/Group.js';
+import User from '../models/User.js';
 import { sendBazarReminderEmail, isEmailConfigured } from './emailService.js';
 import { resolveMemberEmail } from '../utils/memberEmail.js';
+import admin from '../config/firebase.js';
 
 // Today's calendar date in Bangladesh (UTC+6) as YYYY-MM-DD
 export const getTodayInBD = () => {
@@ -101,6 +103,62 @@ export const sendBazarReminders = async (timeSlot) => {
 
 let morningJob = null;
 let eveningJob = null;
+let monthlyCleanupJob = null;
+
+// Monthly cleanup job - runs on 1st of every month at 00:01 BD time (18:01 UTC previous day)
+export const cleanupInactiveMembers = async () => {
+  console.log('\n🧹 ========== MONTHLY CLEANUP: Removing inactive members ==========');
+  
+  try {
+    const now = new Date();
+    
+    // Find all users scheduled for deletion
+    const usersToCleanup = await User.find({
+      isActive: false,
+      scheduledDeletion: { $lte: now }
+    });
+    
+    console.log(`Found ${usersToCleanup.length} users scheduled for cleanup`);
+    
+    for (const user of usersToCleanup) {
+      try {
+        // Remove from group members array
+        if (user.groupId) {
+          const group = await Group.findById(user.groupId);
+          if (group) {
+            group.members = group.members.filter(m => m.userId !== user.uid);
+            await group.save();
+            console.log(`✅ Removed ${user.name} from group ${group.name}`);
+          }
+        }
+        
+        // Clear user's group data
+        user.groupId = null;
+        user.isActive = true;
+        user.leftAt = null;
+        user.scheduledDeletion = null;
+        await user.save();
+        
+        // Clear Firebase custom claims
+        if (admin.apps.length > 0) {
+          await admin.auth().setCustomUserClaims(user.uid, { groupId: null });
+        }
+        
+        console.log(`✅ Cleaned up user: ${user.name} (${user.email})`);
+      } catch (err) {
+        console.error(`❌ Failed to cleanup user ${user.name}:`, err.message);
+      }
+    }
+    
+    console.log(`📊 Cleanup Summary: ${usersToCleanup.length} users processed`);
+    console.log('====================================================\n');
+    
+    return { processed: usersToCleanup.length };
+  } catch (error) {
+    console.error('❌ Monthly cleanup failed:', error);
+    return { error: error.message };
+  }
+};
 
 export const initializeCronJobs = () => {
   if (process.env.VERCEL) {
@@ -108,7 +166,7 @@ export const initializeCronJobs = () => {
     return;
   }
 
-  console.log('⏰ Initializing cron jobs for bazar reminders...');
+  console.log('⏰ Initializing cron jobs for bazar reminders and monthly cleanup...');
 
   // 10:00 AM Bangladesh = 04:00 UTC
   morningJob = cron.schedule(
@@ -132,15 +190,31 @@ export const initializeCronJobs = () => {
     { timezone: 'UTC' }
   );
 
+  // Monthly cleanup: 1st of every month at 00:01 BD time = 18:01 UTC previous day
+  monthlyCleanupJob = cron.schedule(
+    '1 18 * * *',
+    async () => {
+      const today = getTodayInBD();
+      // Only run if it's the 1st of the month in Bangladesh
+      if (today.endsWith('-01')) {
+        await cleanupInactiveMembers();
+      }
+    },
+    { timezone: 'UTC' }
+  );
+
   console.log('✅ Cron jobs initialized');
   console.log('📅 Morning: 10:00 AM Bangladesh | Evening: 6:00 PM Bangladesh');
+  console.log('🧹 Monthly Cleanup: 1st of every month at 00:01 AM Bangladesh');
 };
 
 export const stopCronJobs = () => {
   morningJob?.stop();
   eveningJob?.stop();
+  monthlyCleanupJob?.stop();
   morningJob = null;
   eveningJob = null;
+  monthlyCleanupJob = null;
 };
 
 export const triggerManualReminder = async (timeSlot = 'morning') => {

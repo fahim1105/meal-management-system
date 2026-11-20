@@ -1,40 +1,9 @@
-import { NavLink, Link, useNavigate } from 'react-router';
-import { useAuth } from '../../context/AuthContext';
+import { NavLink, Link } from 'react-router';
 import ThemeToggle from '../ThemeToggle';
-import { FaUtensils, FaChartLine, FaCalendarCheck, FaUsers, FaEllipsisV } from 'react-icons/fa';
-import Swal from 'sweetalert2';
+import { FaEllipsisV } from 'react-icons/fa';
 import logo from '../../assets/logo.png';
 
-const DesktopNav = ({ state, userData, group, isManager, onOpenDrawer }) => {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: 'Logout?',
-      html: '<p style="opacity: 0.7; margin-top: 0.5rem;">Are you sure you want to logout?</p>',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, Logout',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-      customClass: {
-        popup: 'swal-logout-popup',
-        title: 'swal-logout-title',
-        htmlContainer: 'swal-logout-html',
-        icon: 'swal-logout-icon',
-        confirmButton: 'swal-logout-confirm',
-        cancelButton: 'swal-logout-cancel',
-        actions: 'swal2-actions',
-      },
-    });
-
-    if (result.isConfirmed) {
-      logout();
-      navigate('/');
-    }
-  };
-
+const DesktopNav = ({ state, onOpenDrawer }) => {
   // Active link styling
   const navLinkClass = ({ isActive }) =>
     `px-[18px] py-2 rounded-full text-[14.5px] font-normal transition-all ${
@@ -149,23 +118,7 @@ const DesktopNav = ({ state, userData, group, isManager, onOpenDrawer }) => {
           </>
         )}
 
-        {state === 'B' && (
-          <>
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-[14px] font-semibold rounded-[10px] transition-opacity hover:opacity-90"
-              style={{ 
-                background: 'var(--shell-pill-bg)',
-                color: 'var(--shell-pill-text)'
-              }}
-            >
-              Logout
-            </button>
-          </>
-        )}
-
-        {state === 'C' && (
+        {(state === 'B' || state === 'C') && (
           <button
             onClick={onOpenDrawer}
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10"

@@ -163,7 +163,7 @@ const ChatContainer = ({ groupId, isManager, isMobile = false, groupMembers = []
           <div className="px-4 py-3 bg-gradient-to-r from-base-200/80 to-base-100 border-b border-base-300 flex flex-wrap gap-2 shadow-sm">
             <button
               onClick={() => setShowAnnouncementModal(true)}
-              className="btn btn-sm bg-warning border-none text-white shadow-md hover:bg-warning/90 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
+              className="btn btn-sm bg-info border-none text-white shadow-md hover:bg-info/90 hover:scale-105 transition-all gap-2 flex-1 sm:flex-none"
             >
               <FaBullhorn />
               <span className="hidden sm:inline">Announcement</span>

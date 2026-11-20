@@ -1,24 +1,21 @@
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import Lottie from 'lottie-react';
+import foodAnimation from '../assets/buVb1xsacB.json';
 
-const LOTTIE_SRC =
-  'https://lottie.host/f5dd7f95-bc65-4762-a774-83b0a8335e54/90oebfUk5O.lottie';
-
-const LottieFoodAnimation = () => (
-  <div className="h-full sm:w-full flex items-center justify-center overflow-hidden">
-    <DotLottieReact
-      src={LOTTIE_SRC}
-      loop
-      autoplay
-      style={{
-        width: '100%',
-        height: '100%',
-        objectFit: 'contain'
-      }}
-      rendererSettings={{
-        preserveAspectRatio: 'xMidYMid meet'
-      }}
-    />
-  </div>
-);
+const LottieFoodAnimation = () => {
+  return (
+    <div className="h-full sm:w-full flex items-center justify-center overflow-hidden">
+      <Lottie
+        animationData={foodAnimation}
+        loop
+        autoplay
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain'
+        }}
+      />
+    </div>
+  );
+};
 
 export default LottieFoodAnimation;
