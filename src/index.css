@@ -1695,6 +1695,228 @@ body {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Cancel Join Request SweetAlert Custom Styling - Theme-Adaptive (Light & Dark)
+   ────────────────────────────────────────────────────────────────────────── */
+.swal-cancel-req-popup {
+  background: var(--color-base-100) !important;
+  color: var(--color-base-content) !important;
+  border-radius: 22px !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  padding: 1.75rem 1.5rem 1.5rem !important;
+  width: min(480px, calc(100vw - 1.5rem)) !important;
+  max-width: 480px !important;
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.swal-cancel-req-title {
+  color: var(--color-base-content) !important;
+  font-size: clamp(1.25rem, 5vw, 1.55rem) !important;
+  font-weight: 800 !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.4rem !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.25 !important;
+}
+
+.swal-cancel-req-html {
+  color: var(--color-base-content) !important;
+  font-size: clamp(0.85rem, 3.4vw, 0.95rem) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.swal-cancel-req-icon {
+  width: 64px !important;
+  height: 64px !important;
+  margin: 0 auto 1.15rem !important;
+  border-width: 3px !important;
+}
+
+/* Light mode warning icon */
+:root:not([data-theme="dark"]) .swal-cancel-req-icon.swal2-warning,
+[data-theme="light"] .swal-cancel-req-icon.swal2-warning {
+  border-color: #8E4A43 !important;
+  color: #8E4A43 !important;
+}
+
+/* Dark mode warning icon */
+[data-theme="dark"] .swal-cancel-req-icon.swal2-warning {
+  border-color: #E09A93 !important;
+  color: #E09A93 !important;
+}
+
+/* Info Card inside modal */
+.swal-cancel-req-info-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  margin: 0.7rem 0 0.6rem;
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent);
+  border-radius: 14px;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+/* Notice box */
+.swal-cancel-req-notice {
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: clamp(0.78rem, 3vw, 0.85rem);
+  text-align: left;
+  line-height: 1.45;
+  margin-top: 0.65rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+:root:not([data-theme="dark"]) .swal-cancel-req-notice,
+[data-theme="light"] .swal-cancel-req-notice {
+  background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100));
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-primary) 28%, transparent);
+}
+
+[data-theme="dark"] .swal-cancel-req-notice {
+  background: rgba(214, 189, 152, 0.08);
+  color: #D6BD98;
+  border: 1px solid rgba(214, 189, 152, 0.18);
+}
+
+/* Actions & Buttons */
+.swal-cancel-req-actions {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 1.35rem !important;
+  width: 100% !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Confirm Button (Cancel request) */
+.swal-cancel-req-confirm {
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+:root:not([data-theme="dark"]) .swal-cancel-req-confirm,
+[data-theme="light"] .swal-cancel-req-confirm {
+  background: #8E4A43 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(142, 74, 67, 0.3) !important;
+}
+
+:root:not([data-theme="dark"]) .swal-cancel-req-confirm:hover,
+[data-theme="light"] .swal-cancel-req-confirm:hover {
+  background: #753d37 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(142, 74, 67, 0.45) !important;
+}
+
+[data-theme="dark"] .swal-cancel-req-confirm {
+  background: #E09A93 !important;
+  color: #1f2723 !important;
+  box-shadow: 0 4px 14px rgba(224, 154, 147, 0.25) !important;
+}
+
+[data-theme="dark"] .swal-cancel-req-confirm:hover {
+  background: #f0aca5 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(224, 154, 147, 0.35) !important;
+}
+
+/* Cancel Button (Keep Request) */
+.swal-cancel-req-cancel {
+  background: var(--color-base-200) !important;
+  color: var(--color-base-content) !important;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.swal-cancel-req-cancel:hover {
+  background: var(--color-base-300) !important;
+  transform: translateY(-1.5px) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Cancel Join Request - Mobile Responsive Breakpoints (<= 480px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .swal-cancel-req-popup {
+    padding: 1.35rem 1rem 1.15rem !important;
+    border-radius: 18px !important;
+    width: calc(100vw - 1.25rem) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+  }
+
+  .swal-cancel-req-icon {
+    width: 52px !important;
+    height: 52px !important;
+    margin: 0 auto 0.75rem !important;
+    border-width: 2.5px !important;
+    font-size: 1.15rem !important;
+  }
+
+  .swal-cancel-req-info-card {
+    padding: 0.55rem 0.75rem !important;
+    margin: 0.55rem 0 0.6rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .swal-cancel-req-actions {
+    flex-direction: column-reverse !important;
+    gap: 0.55rem !important;
+    margin-top: 1.15rem !important;
+  }
+
+  .swal-cancel-req-confirm,
+  .swal-cancel-req-cancel {
+    width: 100% !important;
+    flex: none !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .swal-cancel-req-popup {
+    padding: 1.15rem 0.75rem 1rem !important;
+  }
+}
+
 /* Fine/Jorimana page colors: derived from the active DaisyUI theme */
 :root, [data-theme="light"] {
   --fine-primary: #8E4A43;                           /* main fine color (muted red) */

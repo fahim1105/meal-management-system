@@ -158,20 +158,45 @@ const GroupSetup = () => {
   });
 
   const handleCancelRequest = async () => {
+    const requestedTime = requestStatus?.request?.requestedAt
+      ? format(new Date(requestStatus.request.requestedAt), 'MMM dd, yyyy • hh:mm a')
+      : null;
+
     const result = await Swal.fire({
       title: 'Cancel Join Request?',
-      text: 'Are you sure you want to cancel your join request?',
+      html: `
+        <p style="margin-bottom: 0.5rem; opacity: 0.85;">
+          Are you sure you want to cancel your pending request to join this group?
+        </p>
+        ${requestedTime ? `
+          <div class="swal-cancel-req-info-card">
+            <span style="font-size: 1.1rem; flex-shrink: 0; line-height: 1.2;">⏳</span>
+            <div>
+              <p style="margin: 0; font-weight: 700; font-size: 0.88rem;">Request Submitted</p>
+              <p style="margin: 2px 0 0; font-size: 0.78rem; opacity: 0.7;">${requestedTime}</p>
+            </div>
+          </div>
+        ` : ''}
+        <div class="swal-cancel-req-notice">
+          <span style="font-size: 1.15rem; flex-shrink: 0; line-height: 1.2;">💡</span>
+          <div>
+            Once cancelled, you can immediately create your own group or join another mess group.
+          </div>
+        </div>
+      `,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, Cancel',
+      confirmButtonText: 'Yes, Cancel Request',
       cancelButtonText: 'Keep Request',
       reverseButtons: true,
       customClass: {
-        popup: 'rounded-2xl',
-        confirmButton: 'btn btn-error',
-        cancelButton: 'btn btn-ghost'
+        popup: 'swal-cancel-req-popup',
+        title: 'swal-cancel-req-title',
+        htmlContainer: 'swal-cancel-req-html',
+        icon: 'swal-cancel-req-icon',
+        actions: 'swal-cancel-req-actions',
+        confirmButton: 'swal-cancel-req-confirm',
+        cancelButton: 'swal-cancel-req-cancel',
       }
     });
 
