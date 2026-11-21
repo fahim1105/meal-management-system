@@ -113,7 +113,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
     if (financialStatus.balance < 0) {
       alertBanner = `
         <div class="swal-leave-alert swal-leave-alert-error">
-          <span style="font-size: 1.2rem; flex-shrink: 0;">⚠️</span>
+          <span style="font-size: 1.15rem; flex-shrink: 0; line-height: 1.2;">⚠️</span>
           <div>
             <strong>Outstanding Balance:</strong> You have an unpaid amount of <strong>৳${Math.abs(financialStatus.balance).toFixed(2)}</strong>. Please settle before leaving.
           </div>
@@ -122,7 +122,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
     } else if (financialStatus.balance > 0) {
       alertBanner = `
         <div class="swal-leave-alert swal-leave-alert-success">
-          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <span style="font-size: 1.15rem; flex-shrink: 0; line-height: 1.2;">✓</span>
           <div>
             <strong>Refund Due:</strong> You have a surplus balance of <strong>৳${financialStatus.balance.toFixed(2)}</strong> to receive from the mess.
           </div>
@@ -131,7 +131,7 @@ const GroupSettings = ({ group, isManager, onUpdate }) => {
     } else {
       alertBanner = `
         <div class="swal-leave-alert swal-leave-alert-neutral">
-          <span style="font-size: 1.2rem; flex-shrink: 0;">✓</span>
+          <span style="font-size: 1.15rem; flex-shrink: 0; line-height: 1.2;">✓</span>
           <div>
             <strong>Account Balanced:</strong> Your mess finances are fully settled (৳0.00).
           </div>

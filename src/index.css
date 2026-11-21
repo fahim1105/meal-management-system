@@ -1049,31 +1049,38 @@ body {
   color: var(--color-base-content) !important;
   border-radius: 22px !important;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
-  padding: 2rem 1.75rem 1.75rem !important;
+  padding: 1.75rem 1.5rem 1.5rem !important;
+  width: min(490px, calc(100vw - 1.5rem)) !important;
   max-width: 490px !important;
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
 }
 
 .swal-leave-title {
   color: var(--color-base-content) !important;
-  font-size: 1.55rem !important;
+  font-size: clamp(1.25rem, 5vw, 1.55rem) !important;
   font-weight: 800 !important;
   margin-top: 0.25rem !important;
-  margin-bottom: 0.5rem !important;
+  margin-bottom: 0.4rem !important;
   letter-spacing: -0.02em !important;
+  line-height: 1.25 !important;
 }
 
 .swal-leave-html {
   color: var(--color-base-content) !important;
-  font-size: 0.95rem !important;
+  font-size: clamp(0.85rem, 3.4vw, 0.95rem) !important;
   margin: 0 !important;
   padding: 0 !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 .swal-leave-icon:not(.swal2-success) {
-  width: 68px !important;
-  height: 68px !important;
-  margin: 0 auto 1.25rem !important;
+  width: 64px !important;
+  height: 64px !important;
+  margin: 0 auto 1.15rem !important;
   border-width: 3px !important;
 }
 
@@ -1120,21 +1127,27 @@ body {
 .swal-leave-actions {
   display: flex !important;
   gap: 0.75rem !important;
-  margin-top: 1.5rem !important;
+  margin-top: 1.35rem !important;
   width: 100% !important;
   justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
 /* Danger Confirm Button (Leave) */
 .swal-leave-confirm {
   border: none !important;
   border-radius: 12px !important;
-  padding: 0.75rem 1.5rem !important;
-  font-size: 0.95rem !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
   font-weight: 700 !important;
   flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
+  box-sizing: border-box !important;
 }
 
 :root:not([data-theme="dark"]) .swal-leave-confirm,
@@ -1173,6 +1186,10 @@ body {
   font-size: 0.95rem !important;
   font-weight: 700 !important;
   min-width: 140px !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.2s ease !important;
   box-shadow: 0 4px 12px rgba(92, 112, 87, 0.3) !important;
 }
@@ -1188,12 +1205,17 @@ body {
   color: var(--color-base-content) !important;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
   border-radius: 12px !important;
-  padding: 0.75rem 1.5rem !important;
-  font-size: 0.95rem !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
   font-weight: 600 !important;
   flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.2s ease !important;
   cursor: pointer !important;
+  box-sizing: border-box !important;
 }
 
 .swal-leave-cancel:hover {
@@ -1204,14 +1226,16 @@ body {
 /* Alert Boxes Inside Leave Modal */
 .swal-leave-alert {
   border-radius: 12px;
-  padding: 0.75rem 0.9rem;
+  padding: 0.65rem 0.8rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.65rem;
-  font-size: 0.875rem;
+  font-size: clamp(0.8rem, 3.2vw, 0.86rem);
   text-align: left;
   line-height: 1.45;
-  margin: 0.85rem 0;
+  margin: 0.75rem 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 :root:not([data-theme="dark"]) .swal-leave-alert-error,
@@ -1256,15 +1280,19 @@ body {
 /* Summary Stats Grid */
 .swal-leave-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.55rem;
-  margin-top: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .swal-leave-stat-card {
-  padding: 0.65rem 0.5rem;
-  border-radius: 12px;
+  padding: 0.55rem 0.3rem;
+  border-radius: 10px;
   text-align: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 :root:not([data-theme="dark"]) .swal-leave-stat-card,
@@ -1279,27 +1307,97 @@ body {
 }
 
 .swal-leave-stat-label {
-  font-size: 0.72rem;
+  font-size: clamp(0.62rem, 2.3vw, 0.7rem);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   opacity: 0.7;
   display: block;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.15rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swal-leave-stat-val {
-  font-size: 1rem;
+  font-size: clamp(0.82rem, 3.2vw, 0.98rem);
   font-weight: 800;
   color: var(--color-base-content);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swal-leave-notice {
-  font-size: 0.8rem;
-  opacity: 0.68;
-  margin-top: 0.85rem;
+  font-size: clamp(0.74rem, 2.8vw, 0.8rem);
+  opacity: 0.72;
+  margin-top: 0.75rem;
   margin-bottom: 0;
   line-height: 1.4;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Leave Group SweetAlert - Mobile Responsive Breakpoints (<= 480px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .swal-leave-popup {
+    padding: 1.35rem 1rem 1.15rem !important;
+    border-radius: 18px !important;
+    width: calc(100vw - 1.25rem) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+  }
+
+  .swal-leave-icon:not(.swal2-success) {
+    width: 52px !important;
+    height: 52px !important;
+    margin: 0 auto 0.75rem !important;
+    border-width: 2.5px !important;
+    font-size: 1.15rem !important;
+  }
+
+  .swal-leave-icon.swal2-success {
+    font-size: 12.5px !important;
+    margin: 0.25rem auto 0.75rem !important;
+  }
+
+  .swal-leave-actions {
+    flex-direction: column-reverse !important;
+    gap: 0.55rem !important;
+    margin-top: 1.15rem !important;
+  }
+
+  .swal-leave-confirm,
+  .swal-leave-cancel {
+    width: 100% !important;
+    flex: none !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    min-height: 44px !important;
+  }
+
+  .swal-leave-confirm-primary {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .swal-leave-stats-grid {
+    gap: 0.35rem !important;
+  }
+
+  .swal-leave-stat-card {
+    padding: 0.45rem 0.2rem !important;
+  }
+
+  .swal-leave-popup {
+    padding: 1.2rem 0.75rem 1rem !important;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -1310,31 +1408,38 @@ body {
   color: var(--color-base-content) !important;
   border-radius: 22px !important;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
-  padding: 2rem 1.75rem 1.75rem !important;
+  padding: 1.75rem 1.5rem 1.5rem !important;
+  width: min(480px, calc(100vw - 1.5rem)) !important;
   max-width: 480px !important;
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
 }
 
 .swal-reject-title {
   color: var(--color-base-content) !important;
-  font-size: 1.55rem !important;
+  font-size: clamp(1.25rem, 5vw, 1.55rem) !important;
   font-weight: 800 !important;
   margin-top: 0.25rem !important;
-  margin-bottom: 0.5rem !important;
+  margin-bottom: 0.4rem !important;
   letter-spacing: -0.02em !important;
+  line-height: 1.25 !important;
 }
 
 .swal-reject-html {
   color: var(--color-base-content) !important;
-  font-size: 0.95rem !important;
+  font-size: clamp(0.85rem, 3.4vw, 0.95rem) !important;
   margin: 0 !important;
   padding: 0 !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 .swal-reject-icon {
-  width: 68px !important;
-  height: 68px !important;
-  margin: 0 auto 1.25rem !important;
+  width: 64px !important;
+  height: 64px !important;
+  margin: 0 auto 1.15rem !important;
   border-width: 3px !important;
 }
 
@@ -1355,18 +1460,20 @@ body {
 .swal-reject-user-card {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.75rem 1rem;
-  margin: 0.75rem 0 0.85rem;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  margin: 0.7rem 0 0.8rem;
   background: var(--color-base-200);
   border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent);
   border-radius: 14px;
   text-align: left;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .swal-reject-avatar {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   overflow: hidden;
   background: color-mix(in oklab, var(--color-primary) 20%, transparent);
@@ -1375,7 +1482,7 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
@@ -1387,7 +1494,7 @@ body {
 }
 
 .swal-reject-user-name {
-  font-size: 0.95rem;
+  font-size: clamp(0.85rem, 3.2vw, 0.95rem);
   font-weight: 700;
   color: var(--color-base-content);
   line-height: 1.25;
@@ -1397,7 +1504,7 @@ body {
 }
 
 .swal-reject-user-email {
-  font-size: 0.8rem;
+  font-size: clamp(0.72rem, 2.8vw, 0.8rem);
   opacity: 0.65;
   color: var(--color-base-content);
   line-height: 1.25;
@@ -1412,10 +1519,10 @@ body {
 .swal-reject-input-label {
   display: block !important;
   text-align: left !important;
-  font-size: 0.875rem !important;
+  font-size: clamp(0.78rem, 3vw, 0.86rem) !important;
   font-weight: 600 !important;
   color: var(--color-base-content) !important;
-  margin: 0 0 0.45rem !important;
+  margin: 0 0 0.4rem !important;
   opacity: 0.85 !important;
 }
 
@@ -1423,14 +1530,14 @@ body {
 .swal-reject-textarea {
   width: 100% !important;
   box-sizing: border-box !important;
-  min-height: 85px !important;
-  max-height: 160px !important;
+  min-height: 75px !important;
+  max-height: 140px !important;
   background: var(--color-base-200) !important;
   color: var(--color-base-content) !important;
   border: 1.5px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
   border-radius: 12px !important;
-  padding: 0.75rem 0.85rem !important;
-  font-size: 0.9rem !important;
+  padding: 0.65rem 0.8rem !important;
+  font-size: clamp(0.85rem, 3.2vw, 0.9rem) !important;
   line-height: 1.4 !important;
   margin: 0 0 0.5rem !important;
   font-family: inherit !important;
@@ -1456,21 +1563,27 @@ body {
 .swal-reject-actions {
   display: flex !important;
   gap: 0.75rem !important;
-  margin-top: 1.5rem !important;
+  margin-top: 1.25rem !important;
   width: 100% !important;
   justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
 /* Danger Confirm Button (Reject) */
 .swal-reject-confirm {
   border: none !important;
   border-radius: 12px !important;
-  padding: 0.75rem 1.5rem !important;
-  font-size: 0.95rem !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
   font-weight: 700 !important;
   flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
+  box-sizing: border-box !important;
 }
 
 :root:not([data-theme="dark"]) .swal-reject-confirm,
@@ -1505,17 +1618,81 @@ body {
   color: var(--color-base-content) !important;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent) !important;
   border-radius: 12px !important;
-  padding: 0.75rem 1.5rem !important;
-  font-size: 0.95rem !important;
+  padding: 0.75rem 1.35rem !important;
+  font-size: 0.92rem !important;
   font-weight: 600 !important;
   flex: 1 !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
+  box-sizing: border-box !important;
 }
 
 .swal-reject-cancel:hover {
   background: var(--color-base-300) !important;
   transform: translateY(-1.5px) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Reject Join Request - Mobile Responsive Breakpoints (<= 480px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .swal-reject-popup {
+    padding: 1.35rem 1rem 1.15rem !important;
+    border-radius: 18px !important;
+    width: calc(100vw - 1.25rem) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+  }
+
+  .swal-reject-icon {
+    width: 52px !important;
+    height: 52px !important;
+    margin: 0 auto 0.75rem !important;
+    border-width: 2.5px !important;
+    font-size: 1.15rem !important;
+  }
+
+  .swal-reject-user-card {
+    padding: 0.55rem 0.75rem !important;
+    margin: 0.55rem 0 0.7rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .swal-reject-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 0.9rem !important;
+  }
+
+  .swal-reject-popup .swal2-textarea,
+  .swal-reject-textarea {
+    min-height: 65px !important;
+    padding: 0.55rem 0.7rem !important;
+  }
+
+  .swal-reject-actions {
+    flex-direction: column-reverse !important;
+    gap: 0.55rem !important;
+    margin-top: 1.1rem !important;
+  }
+
+  .swal-reject-confirm,
+  .swal-reject-cancel {
+    width: 100% !important;
+    flex: none !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .swal-reject-popup {
+    padding: 1.15rem 0.75rem 1rem !important;
+  }
 }
 
 /* Fine/Jorimana page colors: derived from the active DaisyUI theme */
