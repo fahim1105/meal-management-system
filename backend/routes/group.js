@@ -3,6 +3,10 @@ import Group from '../models/Group.js';
 import User from '../models/User.js';
 import JoinRequest from '../models/JoinRequest.js';
 import Finance from '../models/Finance.js';
+import MealSheet from '../models/MealSheet.js';
+import BazarSchedule from '../models/BazarSchedule.js';
+import MealConfig from '../models/MealConfig.js';
+import Fine from '../models/Fine.js';
 import { verifyToken } from '../middleware/auth.js';
 import admin from '../config/firebase.js';
 
@@ -105,6 +109,7 @@ router.post('/join', verifyToken, async (req, res) => {
       group.members[existingMemberIndex].joinedAt = new Date();
       group.members[existingMemberIndex].rejoinedAt = new Date();
       group.members[existingMemberIndex].leftAt = null;
+      group.members[existingMemberIndex].hasLeft = false; // Reset hasLeft so manager can deactivate/reactivate again
       await group.save();
 
       // Reactivate user
@@ -125,6 +130,20 @@ router.post('/join', verifyToken, async (req, res) => {
           await oldGroup.save();
         }
       }
+
+      // Ensure completely fresh start: purge any leftover historical data if user was previously deleted
+      const pullDays = {};
+      for (let d = 1; d <= 31; d++) {
+        pullDays[`days.${d}`] = { userId: uid };
+      }
+      await MealSheet.updateMany({ groupId: group._id }, { $pull: pullDays });
+      await Finance.updateMany({ groupId: group._id }, { $pull: { deposits: { userId: uid } } });
+      await BazarSchedule.updateMany({ groupId: group._id }, { $pull: { ranges: { userId: uid } } });
+      await MealConfig.updateMany({ groupId: group._id }, { $pull: { configs: { userId: uid } } });
+      await Fine.deleteMany({
+        groupId: group._id,
+        $or: [{ targetUserId: uid }, { requestedByUserId: uid }]
+      });
 
       group.members.push({
         userId: uid,
@@ -165,14 +184,19 @@ router.get('/my-group', verifyToken, async (req, res) => {
 
     // Attach photoURL from User collection to each member
     const memberUserIds = group.members.map(m => m.userId);
-    const users = await User.find({ uid: { $in: memberUserIds } }, 'uid photoURL');
-    const photoMap = Object.fromEntries(users.map(u => [u.uid, u.photoURL]));
+    const users = await User.find({ uid: { $in: memberUserIds } }, 'uid photoURL groupId');
+    const userMap = Object.fromEntries(users.map(u => [u.uid, u]));
 
     const groupObj = group.toObject();
-    groupObj.members = groupObj.members.map(m => ({
-      ...m,
-      photoURL: photoMap[m.userId] || null
-    }));
+    groupObj.members = groupObj.members.map(m => {
+      const u = userMap[m.userId];
+      const hasLeft = !!(m.hasLeft || !u || !u.groupId || u.groupId.toString() !== group._id.toString());
+      return {
+        ...m,
+        photoURL: u?.photoURL || null,
+        hasLeft
+      };
+    });
 
     res.json({ group: groupObj });
   } catch (error) {
@@ -213,12 +237,23 @@ router.post('/toggle-member-status', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
+    // Check if target member has left the group
+    const targetUser = await User.findOne({ uid: memberId });
+    const userHasLeft = !!(member.hasLeft || !targetUser || !targetUser.groupId || targetUser.groupId.toString() !== group._id.toString());
+
+    if (userHasLeft) {
+      return res.status(400).json({ 
+        error: 'This user has left the group. Manager cannot activate a member who left the group.' 
+      });
+    }
+
     if (member.status === 'active') {
       member.status = 'inactive';
       member.leftAt = new Date();
     } else {
       member.status = 'active';
       member.rejoinedAt = new Date();
+      member.leftAt = null;
     }
 
     await group.save();
@@ -376,6 +411,7 @@ router.post('/leave', verifyToken, async (req, res) => {
     if (memberIndex !== -1) {
       group.members[memberIndex].status = 'inactive';
       group.members[memberIndex].leftAt = now;
+      group.members[memberIndex].hasLeft = true;
       await group.save();
     }
 
@@ -635,9 +671,24 @@ router.post('/approve-request', verifyToken, async (req, res) => {
       group.members[existingMemberIndex].joinedAt = new Date();
       group.members[existingMemberIndex].rejoinedAt = new Date();
       group.members[existingMemberIndex].leftAt = null;
+      group.members[existingMemberIndex].hasLeft = false; // Reset hasLeft so manager can deactivate/reactivate again
       member = group.members[existingMemberIndex];
     } else {
       // New member - add them
+      // Clean up any remnants from previous tenures if user was previously deleted
+      const pullDays = {};
+      for (let d = 1; d <= 31; d++) {
+        pullDays[`days.${d}`] = { userId: joinRequest.userId };
+      }
+      await MealSheet.updateMany({ groupId: group._id }, { $pull: pullDays });
+      await Finance.updateMany({ groupId: group._id }, { $pull: { deposits: { userId: joinRequest.userId } } });
+      await BazarSchedule.updateMany({ groupId: group._id }, { $pull: { ranges: { userId: joinRequest.userId } } });
+      await MealConfig.updateMany({ groupId: group._id }, { $pull: { configs: { userId: joinRequest.userId } } });
+      await Fine.deleteMany({
+        groupId: group._id,
+        $or: [{ targetUserId: joinRequest.userId }, { requestedByUserId: joinRequest.userId }]
+      });
+
       member = {
         userId: joinRequest.userId,
         name: joinRequest.userName,
@@ -836,11 +887,73 @@ router.delete('/remove-member/:memberId', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot remove yourself' });
     }
 
-    // Mark as inactive or remove from group
+    const targetGroupId = user.groupId;
+
+    // 1. Remove member from Group.members array
     group.members = group.members.filter(m => m.userId !== memberId);
     await group.save();
 
-    // Clean up removed user
+    // 2. Remove all meals of this user from MealSheet across all months of this group
+    const pullDays = {};
+    for (let d = 1; d <= 31; d++) {
+      pullDays[`days.${d}`] = { userId: memberId };
+    }
+    await MealSheet.updateMany(
+      { groupId: targetGroupId },
+      { $pull: pullDays }
+    );
+
+    const mealSheets = await MealSheet.find({ groupId: targetGroupId });
+    for (const sheet of mealSheets) {
+      let modified = false;
+      if (sheet.days) {
+        const dayEntries = sheet.days instanceof Map ? Array.from(sheet.days.entries()) : Object.entries(sheet.days);
+        for (const [day, entries] of dayEntries) {
+          if (Array.isArray(entries)) {
+            const initialCount = entries.length;
+            const filtered = entries.filter(e => String(e?.userId || '').trim() !== String(memberId).trim());
+            if (filtered.length !== initialCount) {
+              if (sheet.days instanceof Map) {
+                sheet.days.set(day, filtered);
+              } else {
+                sheet.days[day] = filtered;
+              }
+              modified = true;
+            }
+          }
+        }
+      }
+      if (modified) {
+        sheet.markModified('days');
+        await sheet.save();
+      }
+    }
+
+    // 3. Remove all deposits of this user from Finance across all months of this group
+    await Finance.updateMany(
+      { groupId: targetGroupId },
+      { $pull: { deposits: { userId: memberId } } }
+    );
+
+    // 4. Remove all bazar schedule assignments for this user
+    await BazarSchedule.updateMany(
+      { groupId: targetGroupId },
+      { $pull: { ranges: { userId: memberId } } }
+    );
+
+    // 5. Remove meal configurations for this user
+    await MealConfig.updateMany(
+      { groupId: targetGroupId },
+      { $pull: { configs: { userId: memberId } } }
+    );
+
+    // 6. Remove any fines targeting or requested by this user in this group
+    await Fine.deleteMany({
+      groupId: targetGroupId,
+      $or: [{ targetUserId: memberId }, { requestedByUserId: memberId }]
+    });
+
+    // 7. Clean up removed user
     const removedUser = await User.findOne({ uid: memberId });
     if (removedUser) {
       removedUser.groupId = null;
@@ -852,7 +965,7 @@ router.delete('/remove-member/:memberId', verifyToken, async (req, res) => {
       await JoinRequest.deleteMany({ userId: memberId });
     }
 
-    res.json({ message: 'Member removed successfully', group });
+    res.json({ message: 'Member deleted and all their records purged successfully', group });
   } catch (error) {
     console.error('Error in remove-member:', error);
     res.status(500).json({ error: error.message });

@@ -27,10 +27,23 @@ const AdminMembers = () => {
 
   const handleUpdate = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.group() });
+    await queryClient.invalidateQueries({ queryKey: ['meal'] });
+    await queryClient.invalidateQueries({ queryKey: ['mealConfig'] });
+    await queryClient.invalidateQueries({ queryKey: ['finance'] });
+    await queryClient.invalidateQueries({ queryKey: ['summary'] });
+    await queryClient.invalidateQueries({ queryKey: ['schedule'] });
+    await queryClient.invalidateQueries({ queryKey: ['fines'] });
+    await queryClient.invalidateQueries({ queryKey: ['fineSummary'] });
+    await queryClient.invalidateQueries({ queryKey: ['history'] });
     await queryClient.refetchQueries({ queryKey: queryKeys.group() });
   };
 
   const handleToggleMemberStatus = async (member) => {
+    if (member.hasLeft) {
+      burgerToast.error('User has left the group and cannot be activated by manager');
+      return;
+    }
+
     const isActive = member.status === 'active';
     const action = isActive ? 'deactivate' : 'reactivate';
 
@@ -186,13 +199,21 @@ const AdminMembers = () => {
                         )}
                       </td>
                       <td className="text-center">
-                        {isInactive ? (
+                        {member.hasLeft ? (
                           <div className="flex flex-col items-center gap-1">
                             <span className="badge badge-error gap-1">
                               <FaUserSlash className="text-xs" />
-                              Inactive
+                              Left Group
                             </span>
                             {leftDate && <span className="text-xs text-base-content/60">Left: {leftDate}</span>}
+                          </div>
+                        ) : isInactive ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="badge badge-warning gap-1">
+                              <FaUserSlash className="text-xs" />
+                              Deactivated
+                            </span>
+                            {leftDate && <span className="text-xs text-base-content/60">Since: {leftDate}</span>}
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-1">
@@ -207,25 +228,36 @@ const AdminMembers = () => {
                       <td className="text-center">
                         {!isMe && !isMgr && (
                           <div className="flex items-center justify-center gap-2">
-                            <button 
-                              className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`} 
-                              onClick={() => handleToggleMemberStatus(member)} 
-                              disabled={togglingMember === member.userId || deletingMember === member.userId}
-                            >
-                              {togglingMember === member.userId ? (
-                                <span className="loading loading-spinner loading-xs"></span>
-                              ) : isInactive ? (
-                                <>
-                                  <FaToggleOn />
-                                  Activate
-                                </>
-                              ) : (
-                                <>
-                                  <FaToggleOff />
-                                  Deactivate
-                                </>
-                              )}
-                            </button>
+                            {member.hasLeft ? (
+                              <button 
+                                className="btn btn-xs btn-disabled opacity-40 cursor-not-allowed gap-1"
+                                disabled
+                                title="User has left the group and cannot be activated by manager"
+                              >
+                                <FaToggleOff />
+                                Left
+                              </button>
+                            ) : (
+                              <button 
+                                className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'} gap-1`} 
+                                onClick={() => handleToggleMemberStatus(member)} 
+                                disabled={togglingMember === member.userId || deletingMember === member.userId}
+                              >
+                                {togglingMember === member.userId ? (
+                                  <span className="loading loading-spinner loading-xs"></span>
+                                ) : isInactive ? (
+                                  <>
+                                    <FaToggleOn />
+                                    Activate
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaToggleOff />
+                                    Deactivate
+                                  </>
+                                )}
+                              </button>
+                            )}
                             <button 
                               className="btn btn-xs btn-error gap-1"
                               onClick={() => handleDeleteMember(member)}
@@ -291,26 +323,36 @@ const AdminMembers = () => {
                           <span className="badge badge-xs badge-ghost">Member</span>
                         )}
                       </div>
-                      <span className={`badge badge-xs mt-0.5 ${isInactive ? 'badge-error' : 'badge-success'}`}>
-                        {isInactive ? 'Inactive' : 'Active'}
+                      <span className={`badge badge-xs mt-0.5 ${member.hasLeft ? 'badge-error' : isInactive ? 'badge-warning' : 'badge-success'}`}>
+                        {member.hasLeft ? 'Left Group' : isInactive ? 'Deactivated' : 'Active'}
                       </span>
                     </div>
                   </div>
                   {!isMe && !isMgr && (
                     <div className="flex flex-col gap-1 shrink-0 ml-2">
-                      <button
-                        className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'}`}
-                        onClick={() => handleToggleMemberStatus(member)}
-                        disabled={togglingMember === member.userId || deletingMember === member.userId}
-                      >
-                        {togglingMember === member.userId ? (
-                          <span className="loading loading-spinner loading-xs"></span>
-                        ) : isInactive ? (
-                          <FaToggleOn />
-                        ) : (
+                      {member.hasLeft ? (
+                        <button
+                          className="btn btn-xs btn-disabled opacity-40 cursor-not-allowed"
+                          disabled
+                          title="User has left the group and cannot be activated by manager"
+                        >
                           <FaToggleOff />
-                        )}
-                      </button>
+                        </button>
+                      ) : (
+                        <button
+                          className={`btn btn-xs ${isInactive ? 'btn-success' : 'btn-error'}`}
+                          onClick={() => handleToggleMemberStatus(member)}
+                          disabled={togglingMember === member.userId || deletingMember === member.userId}
+                        >
+                          {togglingMember === member.userId ? (
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : isInactive ? (
+                            <FaToggleOn />
+                          ) : (
+                            <FaToggleOff />
+                          )}
+                        </button>
+                      )}
                       <button
                         className="btn btn-xs btn-error"
                         onClick={() => handleDeleteMember(member)}

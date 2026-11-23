@@ -218,6 +218,14 @@ router.get('/summary/:month', verifyToken, async (req, res) => {
     const memberStats = {};
     
     group.members.forEach(member => {
+      // Exclude members who left in a prior month and haven't rejoined
+      if (member.leftAt && !member.rejoinedAt) {
+        const leftMonth = new Date(member.leftAt).toISOString().slice(0, 7);
+        if (month > leftMonth) {
+          return;
+        }
+      }
+
       memberStats[member.userId] = {
         name: member.name,
         ownMeals: 0,

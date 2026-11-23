@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -405,10 +405,24 @@ const ManagerSettings = ({ group, onUpdate }) => {
     return currentlyOn && hasMealEntries(userId, mealType);
   };
 
+  const availableMealConfigMembers = useMemo(() => {
+    if (!group?.members) return [];
+    return group.members.filter(m => {
+      if (m.hasLeft || m.status === 'inactive') {
+        if (m.leftAt) {
+          const leftMonth = format(new Date(m.leftAt), 'yyyy-MM');
+          if (configMonth > leftMonth) return false;
+        } else if (m.hasLeft) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [group?.members, configMonth]);
+
   useEffect(() => {
-    if (!group?.members) return;
     const prefilled = {};
-    group.members.forEach(m => {
+    availableMealConfigMembers.forEach(m => {
       const existing = existingMealConfig?.configs?.find(c => c.userId === m.userId);
       prefilled[m.userId] = {
         breakfast: existing?.breakfast ?? false,
@@ -417,7 +431,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
       };
     });
     setMealConfigs(prefilled);
-  }, [existingMealConfig, configMonth, group?.members]);
+  }, [existingMealConfig, configMonth, availableMealConfigMembers]);
 
   useEffect(() => {
     if (!fineEnabled && activeManagerTab === 'jorimana') {
@@ -441,22 +455,27 @@ const ManagerSettings = ({ group, onUpdate }) => {
   };
 
   const handleSaveMealConfig = async () => {
-    const configs = group.members.map(m => ({
+    const configs = availableMealConfigMembers.map(m => ({
       userId: m.userId,
       breakfast: !!mealConfigs[m.userId]?.breakfast,
       lunch: !!mealConfigs[m.userId]?.lunch,
       dinner: !!mealConfigs[m.userId]?.dinner,
     }));
 
-    const missing = configs.filter(c => !c.breakfast && !c.lunch && !c.dinner);
+    // Only validate active members who haven't left
+    const activeConfigs = configs.filter((_, i) => {
+      const m = availableMealConfigMembers[i];
+      return !m.hasLeft && m.status === 'active';
+    });
+    const missing = activeConfigs.filter(c => !c.breakfast && !c.lunch && !c.dinner);
     if (missing.length) {
-      burgerToast.error('Each member must have at least one meal type enabled');
+      burgerToast.error('Each active member must have at least one meal type enabled');
       return;
     }
 
     if (existingMealConfig) {
       const conflicts = [];
-      for (const m of group.members) {
+      for (const m of availableMealConfigMembers) {
         const prev = existingMealConfig.configs?.find(c => c.userId === m.userId);
         for (const type of ['breakfast', 'lunch', 'dinner']) {
           if (prev?.[type] && !mealConfigs[m.userId]?.[type] && hasMealEntries(m.userId, type)) {
@@ -846,7 +865,7 @@ const ManagerSettings = ({ group, onUpdate }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            {group?.members.map(member => (
+            {availableMealConfigMembers.map(member => (
               <div key={member.userId} className={`bg-base-200 border rounded-2xl p-4 transition-all ${member.status === 'inactive' ? 'opacity-60 border-base-300' : 'border-orange-200/50 hover:border-orange-400'}`}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-orange-500/10 font-bold text-orange-600 text-sm">

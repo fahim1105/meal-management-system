@@ -54,10 +54,51 @@ router.post('/register', verifyToken, async (req, res) => {
 router.get('/me', verifyToken, async (req, res) => {
   try {
     // DON'T populate groupId - we only need the ID string, not the full object
-    const user = await User.findOne({ uid: req.user.uid });
+    let user = await User.findOne({ uid: req.user.uid });
     
+    // If user doesn't exist in MongoDB, create them (for old Firebase-only users)
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      console.log(`📝 Creating MongoDB record for existing Firebase user: ${req.user.email}`);
+      
+      // Check if user exists in any group's members array
+      const Group = (await import('../models/Group.js')).default;
+      const existingGroup = await Group.findOne({
+        'members': {
+          $elemMatch: {
+            $or: [
+              { userId: req.user.uid },
+              { email: req.user.email }
+            ],
+            status: 'active'
+          }
+        }
+      });
+      
+      // Get name from group member data if exists
+      let userName = req.user.name || req.user.email.split('@')[0];
+      if (existingGroup) {
+        const member = existingGroup.members.find(m => 
+          m.userId === req.user.uid || m.email === req.user.email
+        );
+        if (member && member.name) {
+          userName = member.name;
+        }
+      }
+      
+      user = new User({
+        uid: req.user.uid,
+        email: req.user.email,
+        name: userName,
+        photoURL: req.user.picture || null,
+        groupId: existingGroup ? existingGroup._id : null,
+        isActive: existingGroup ? true : true,
+        createdAt: new Date()
+      });
+      await user.save();
+      
+      if (existingGroup) {
+        console.log(`✅ Linked user to existing group: ${existingGroup.name} as ${userName}`);
+      }
     }
 
     // Ensure custom claims are up to date

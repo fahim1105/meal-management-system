@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -65,9 +65,24 @@ const AdminMeals = () => {
     return currentlyOn && hasMealEntries(userId, mealType);
   };
 
+  const availableMembers = useMemo(() => {
+    if (!group?.members) return [];
+    return group.members.filter(m => {
+      if (m.hasLeft || m.status === 'inactive') {
+        if (m.leftAt) {
+          const leftMonth = format(new Date(m.leftAt), 'yyyy-MM');
+          if (configMonth > leftMonth) return false;
+        } else if (m.hasLeft) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [group?.members, configMonth]);
+
   useEffect(() => {
     const prefilled = {};
-    group?.members.forEach(m => {
+    availableMembers.forEach(m => {
       const existing = existingMealConfig?.configs?.find(c => c.userId === m.userId);
       prefilled[m.userId] = {
         breakfast: existing?.breakfast ?? false,
@@ -76,7 +91,7 @@ const AdminMeals = () => {
       };
     });
     setMealConfigs(prefilled);
-  }, [existingMealConfig, configMonth, group?.members]);
+  }, [existingMealConfig, configMonth, availableMembers]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 820);
@@ -100,22 +115,27 @@ const AdminMeals = () => {
   };
 
   const handleSaveMealConfig = async () => {
-    const configs = group.members.map(m => ({
+    const configs = availableMembers.map(m => ({
       userId: m.userId,
       breakfast: !!mealConfigs[m.userId]?.breakfast,
       lunch: !!mealConfigs[m.userId]?.lunch,
       dinner: !!mealConfigs[m.userId]?.dinner,
     }));
 
-    const missing = configs.filter(c => !c.breakfast && !c.lunch && !c.dinner);
+    // Only validate active members who haven't left
+    const activeConfigs = configs.filter((_, i) => {
+      const m = availableMembers[i];
+      return !m.hasLeft && m.status === 'active';
+    });
+    const missing = activeConfigs.filter(c => !c.breakfast && !c.lunch && !c.dinner);
     if (missing.length) {
-      burgerToast.error('Each member must have at least one meal type enabled');
+      burgerToast.error('Each active member must have at least one meal type enabled');
       return;
     }
 
     if (existingMealConfig) {
       const conflicts = [];
-      for (const m of group.members) {
+      for (const m of availableMembers) {
         const prev = existingMealConfig.configs?.find(c => c.userId === m.userId);
         for (const type of ['breakfast', 'lunch', 'dinner']) {
           if (prev?.[type] && !mealConfigs[m.userId]?.[type] && hasMealEntries(m.userId, type)) {
@@ -192,7 +212,7 @@ const AdminMeals = () => {
 
       {/* Member Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px] mb-[22px]">
-        {group?.members.map(member => {
+        {availableMembers.map(member => {
           const isCurrentUser = member.userId === userData?.uid;
           const isInactive = member.status === 'inactive';
 

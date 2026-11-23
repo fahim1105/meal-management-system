@@ -37,6 +37,10 @@ const groupSchema = new mongoose.Schema({
     rejoinedAt: {
       type: Date,
       default: null
+    },
+    hasLeft: {
+      type: Boolean,
+      default: false
     }
   }],
   currentMonth: {
